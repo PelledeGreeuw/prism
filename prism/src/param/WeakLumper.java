@@ -68,8 +68,8 @@ final class WeakLumper extends Lumper {
 	private HashMap<HashSet<Integer>, Function> stateSignature(int state, HashSet<Integer> ownClass)
 	{
 		HashMap<HashSet<Integer>, Function> signature = new HashMap<HashSet<Integer>, Function>();
-		ListIterator<Integer> toStateIter = origPmc.transitionTargets.get(state).listIterator();
-		ListIterator<Function> toProbIter = origPmc.transitionProbs.get(state).listIterator();
+		ListIterator<Integer> toStateIter = origPmc.getTransitionTargets().get(state).listIterator();
+		ListIterator<Function> toProbIter = origPmc.getTransitionProbs().get(state).listIterator();
 
 		/* compute probability to remain in block in one step */
 		Function slProb = origPmc.getFunctionFactory().getZero();
@@ -87,8 +87,8 @@ final class WeakLumper extends Lumper {
 		/* 1 / (1 - slProb) */
 		Function star = slProb.star();
 
-		toStateIter = origPmc.transitionTargets.get(state).listIterator();
-		toProbIter = origPmc.transitionProbs.get(state).listIterator();
+		toStateIter = origPmc.getTransitionTargets().get(state).listIterator();
+		toProbIter = origPmc.getTransitionProbs().get(state).listIterator();
 		while (toStateIter.hasNext()) {
 			int toState = toStateIter.next();
 			Function toStateProb = toProbIter.next();
@@ -171,7 +171,7 @@ final class WeakLumper extends Lumper {
 			stack.push(state);
 			while (!stack.isEmpty()) {
 				int stackState = stack.pop();
-				for (int predState : origPmc.incoming.get(stackState)) {
+				for (int predState : origPmc.getIncoming().get(stackState)) {
 					HashSet<HashSet<Integer>> predReachBlocks = reachWhichBlocks.get(predState);
 					if (oldBlock.contains(predState) && silent.contains(predState) && !predReachBlocks.contains(block)) {
 						predReachBlocks.add(block);
@@ -252,7 +252,7 @@ final class WeakLumper extends Lumper {
 			HashSet<Integer> leaveSet = new HashSet<Integer>();
 			ArrayList<Integer> directLeaving = new ArrayList<Integer>();
 			for (int state : oldBlock) {
-				for (int toState : origPmc.transitionTargets.get(state)) {
+				for (int toState : origPmc.getTransitionTargets().get(state)) {
 					if (!oldBlock.contains(toState)) {
 						leaveSet.add(state);
 						directLeaving.add(state);
@@ -265,7 +265,7 @@ final class WeakLumper extends Lumper {
 				stack.push(state);
 				while (!stack.isEmpty()) {
 					int leaving = stack.pop();
-					for (int inState : origPmc.incoming.get(leaving)) {
+					for (int inState : origPmc.getIncoming().get(leaving)) {
 						if (oldBlock.contains(inState) && !leaveSet.contains(inState)) {
 							leaveSet.add(inState);
 							stack.push(inState);

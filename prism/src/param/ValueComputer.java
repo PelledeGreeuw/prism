@@ -40,6 +40,12 @@ import explicit.rewards.MCRewardsFromMDPRewards;
 import explicit.rewards.MDPRewards;
 import explicit.rewards.MDPRewardsSimple;
 import explicit.rewards.Rewards;
+import param.elimination.BackwardOrder;
+import param.elimination.BackwardReverseOrder;
+import param.elimination.EliminationOrder;
+import param.elimination.EliminationOrderIterator;
+import param.elimination.ForwardOrder;
+import param.elimination.ForwardReverseOrder;
 import prism.ModelType;
 import prism.PrismComponent;
 import prism.PrismException;
@@ -53,25 +59,22 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 
 /**
- * Computes values for properties of a parametric Markov model. 
+ * Computes values for properties of a parametric Markov model.
  */
-final class ValueComputer extends PrismComponent
-{
+final class ValueComputer extends PrismComponent {
 	private enum PropType {
-		REACH,
-		STEADY
+		REACH, STEADY
 	};
 
-	class SchedulerCacheKey
-	{		
+	class SchedulerCacheKey {
 		final private PropType propType;
 		final private BitSet b1;
 		final private BitSet b2;
 		final private boolean min;
 		final private Rewards<?> rew;
-		
-		SchedulerCacheKey(PropType propType, StateValues b1, StateValues b2, boolean min, Rewards<?> rew, Region region)
-		{
+
+		SchedulerCacheKey(PropType propType, StateValues b1, StateValues b2, boolean min, Rewards<?> rew,
+				Region region) {
 			this.propType = propType;
 			this.b1 = b1.toBitSet();
 			if (b2 == null) {
@@ -82,7 +85,7 @@ final class ValueComputer extends PrismComponent
 			this.min = min;
 			this.rew = rew;
 		}
-		
+
 		@Override
 		public boolean equals(Object obj) {
 			if (!(obj instanceof SchedulerCacheKey)) {
@@ -107,16 +110,16 @@ final class ValueComputer extends PrismComponent
 			if ((rew != null) && !this.rew.equals(other.rew)) {
 				return false;
 			}
-			if (this.min != other.min){
+			if (this.min != other.min) {
 				return false;
 			}
 			return true;
 		}
-		
+
 		@Override
 		public int hashCode() {
 			int hash = 0;
-			
+
 			switch (propType) {
 			case REACH:
 				hash = 13;
@@ -131,22 +134,21 @@ final class ValueComputer extends PrismComponent
 			}
 			hash = ((min) ? 13 : 17) + (hash << 6) + (hash << 16) - hash;
 			hash = ((rew == null) ? 0 : rew.hashCode()) + (hash << 6) + (hash << 16) - hash;
-			
+
 			return hash;
 		}
 	}
 
-	class ResultCacheKey
-	{
+	class ResultCacheKey {
 		final private PropType propType;
 		final private BitSet b1;
 		final private BitSet b2;
 		final private Rewards<?> rew;
 		final private Scheduler sched;
 		final private boolean min;
-		
-		ResultCacheKey(PropType propType, StateValues b1, StateValues b2, Rewards<?> rew, Scheduler sched, boolean min)
-		{
+
+		ResultCacheKey(PropType propType, StateValues b1, StateValues b2, Rewards<?> rew, Scheduler sched,
+				boolean min) {
 			this.propType = propType;
 			this.b1 = b1.toBitSet();
 			if (b2 == null) {
@@ -158,7 +160,7 @@ final class ValueComputer extends PrismComponent
 			this.sched = sched;
 			this.min = min;
 		}
-		
+
 		@Override
 		public boolean equals(Object obj) {
 			if (!(obj instanceof ResultCacheKey)) {
@@ -189,16 +191,16 @@ final class ValueComputer extends PrismComponent
 			if (!this.sched.equals(other.sched)) {
 				return false;
 			}
-			if (this.min != other.min){
+			if (this.min != other.min) {
 				return false;
 			}
 			return true;
 		}
-		
+
 		@Override
 		public int hashCode() {
 			int hash = 0;
-			
+
 			switch (propType) {
 			case REACH:
 				hash = 13;
@@ -214,29 +216,25 @@ final class ValueComputer extends PrismComponent
 			hash = (rew == null ? 0 : rew.hashCode()) + (hash << 6) + (hash << 16) - hash;
 			hash = (sched == null ? 0 : sched.hashCode()) + (hash << 6) + (hash << 16) - hash;
 			hash = (min ? 13 : 17) + (hash << 6) + (hash << 16) - hash;
-			
+
 			return hash;
 		}
 	}
-	
-	class ResultCacheEntry
-	{
+
+	class ResultCacheEntry {
 		final private StateValues values;
 		final private Function[] compare;
-		
-		ResultCacheEntry(StateValues values, Function[] compare)
-		{
+
+		ResultCacheEntry(StateValues values, Function[] compare) {
 			this.values = values;
 			this.compare = compare;
 		}
-		
-		StateValues getValues()
-		{
+
+		StateValues getValues() {
 			return values;
 		}
-		
-		Function[] getCompare()
-		{
+
+		Function[] getCompare() {
 			return compare;
 		}
 	}
@@ -246,25 +244,27 @@ final class ValueComputer extends PrismComponent
 	private FunctionFactory functionFactory;
 	private ConstraintChecker constraintChecker;
 	private BigRational precision;
-	private HashMap<SchedulerCacheKey,ArrayList<Scheduler>> schedCache;
-	private HashMap<ResultCacheKey,ResultCacheEntry> resultCache;
-	private StateEliminator.EliminationOrder eliminationOrder;
+	private HashMap<SchedulerCacheKey, ArrayList<Scheduler>> schedCache;
+	private HashMap<ResultCacheKey, ResultCacheEntry> resultCache;
+	private EliminationOrder eliminationOrder;
 	private Lumper.BisimType bisimType;
 
-	ValueComputer(PrismComponent parent, ParamMode mode, RegionFactory regionFactory, BigRational precision, StateEliminator.EliminationOrder eliminationOrder, Lumper.BisimType bisimType) {
+	ValueComputer(PrismComponent parent, ParamMode mode, RegionFactory regionFactory, BigRational precision,
+			EliminationOrder eliminationOrder, Lumper.BisimType bisimType) {
 		super(parent);
 		this.mode = mode;
 		this.regionFactory = regionFactory;
 		this.functionFactory = regionFactory.getFunctionFactory();
 		this.constraintChecker = regionFactory.getConstraintChecker();
 		this.precision = precision;
-		this.schedCache = new HashMap<SchedulerCacheKey,ArrayList<Scheduler>>();
-		this.resultCache = new HashMap<ResultCacheKey,ResultCacheEntry>();
+		this.schedCache = new HashMap<SchedulerCacheKey, ArrayList<Scheduler>>();
+		this.resultCache = new HashMap<ResultCacheKey, ResultCacheEntry>();
 		this.eliminationOrder = eliminationOrder;
 		this.bisimType = bisimType;
 	}
 
-	RegionValues computeUnbounded(Model<?> model, RegionValues b1, RegionValues b2, boolean min, Rewards<?> rew) throws PrismException {
+	RegionValues computeUnbounded(Model<?> model, RegionValues b1, RegionValues b2, boolean min, Rewards<?> rew)
+			throws PrismException {
 		RegionValues result = new RegionValues(regionFactory);
 		RegionValuesIntersections co = new RegionValuesIntersections(b1, b2);
 		for (RegionIntersection inter : co) {
@@ -278,8 +278,8 @@ final class ValueComputer extends PrismComponent
 	}
 
 	@SuppressWarnings("unchecked")
-	private RegionValues computeUnbounded(Model<?> model, Region region, StateValues b1, StateValues b2, boolean min, Rewards<?> rew) throws PrismException
-	{
+	private RegionValues computeUnbounded(Model<?> model, Region region, StateValues b1, StateValues b2, boolean min,
+			Rewards<?> rew) throws PrismException {
 		switch (model.getModelType()) {
 		case CTMC:
 		case DTMC:
@@ -287,12 +287,13 @@ final class ValueComputer extends PrismComponent
 		case MDP:
 			return computeUnboundedMDP((MDP<Function>) model, region, b1, b2, min, (MDPRewards<Function>) rew);
 		default:
-			throw new PrismNotSupportedException("Parametric unbounded reachability computation not supported for " + model.getModelType());
+			throw new PrismNotSupportedException(
+					"Parametric unbounded reachability computation not supported for " + model.getModelType());
 		}
 	}
 
-	private RegionValues computeUnboundedMC(DTMC<Function> dtmc, Region region, StateValues b1, StateValues b2, MCRewards<Function> mcRewards) throws PrismException
-	{
+	private RegionValues computeUnboundedMC(DTMC<Function> dtmc, Region region, StateValues b1, StateValues b2,
+			MCRewards<Function> mcRewards) throws PrismException {
 		BitSet inf = null;
 		if (mcRewards != null) {
 			// determine infinity states
@@ -301,7 +302,8 @@ final class ValueComputer extends PrismComponent
 			inf = mcExplicit.prob1(dtmc, b1.toBitSet(), b2.toBitSet());
 			inf.flip(0, dtmc.getNumStates());
 			for (int i : new IterableStateSet(inf, dtmc.getNumStates())) {
-				// clear states with infinite value from b1 so they will get Infinity value in the DTMC
+				// clear states with infinite value from b1 so they will get Infinity value in
+				// the DTMC
 				b1.setStateValue(i, false);
 			}
 		}
@@ -324,8 +326,8 @@ final class ValueComputer extends PrismComponent
 		return regionFactory.completeCover(values);
 	}
 
-	private RegionValues computeUnboundedMDP(MDP<Function> mdp, Region region, StateValues b1, StateValues b2, boolean min, MDPRewards<Function> mdpRewards) throws PrismException
-	{
+	private RegionValues computeUnboundedMDP(MDP<Function> mdp, Region region, StateValues b1, StateValues b2,
+			boolean min, MDPRewards<Function> mdpRewards) throws PrismException {
 		BigRational precisionForThisRegion = region.volume().multiply(precision);
 		BigRational requiredVolume = region.volume().subtract(precisionForThisRegion);
 		RegionValues result = new RegionValues(regionFactory);
@@ -352,8 +354,9 @@ final class ValueComputer extends PrismComponent
 
 		while (volume.compareTo(requiredVolume) == -1) {
 			Region currentRegion = todo.poll();
-			Point midPoint = ((BoxRegion)currentRegion).getMidPoint();
-			Scheduler scheduler = computeOptConcreteReachScheduler(midPoint, mdp, b1, b2, min, mdpRewards, initialScheduler);
+			Point midPoint = ((BoxRegion) currentRegion).getMidPoint();
+			Scheduler scheduler = computeOptConcreteReachScheduler(midPoint, mdp, b1, b2, min, mdpRewards,
+					initialScheduler);
 			if (scheduler == null) {
 				// midpoint leads to non-well-defined model
 				if (currentRegion.volume().compareTo(precisionForThisRegion) <= 0) {
@@ -373,7 +376,8 @@ final class ValueComputer extends PrismComponent
 			StateValues values;
 			if (resultCacheEntry == null) {
 				DTMC<Function> dtmc = new DTMCFromMDPMemorylessAdversary<>(mdp, scheduler.choices);
-				MCRewards<Function> mcRewards = mdpRewards == null ? null : new MCRewardsFromMDPRewards<>(mdpRewards, scheduler.choices);
+				MCRewards<Function> mcRewards = mdpRewards == null ? null
+						: new MCRewardsFromMDPRewards<>(mdpRewards, scheduler.choices);
 				MutablePMC pmc = buildAlterablePMCForReach(dtmc, b1, b2, mcRewards);
 				values = computeValues(pmc, mdp.getFirstInitialState());
 				compare = computeCompare(mdp, b1, b2, mdpRewards, scheduler, min, values);
@@ -400,12 +404,11 @@ final class ValueComputer extends PrismComponent
 
 		return result;
 	}
-	
+
 	private Function[] computeCompare(MDP<Function> model, StateValues b1, StateValues b2,
-			MDPRewards<Function> mdpRewards, Scheduler scheduler, boolean min,
-			StateValues values) {
+			MDPRewards<Function> mdpRewards, Scheduler scheduler, boolean min, StateValues values) {
 		HashSet<Function> allValues = new HashSet<Function>();
-		
+
 		for (int state = 0; state < model.getNumStates(); state++) {
 			if (!b1.getStateValueAsBoolean(state) || b2.getStateValueAsBoolean(state)) {
 				continue;
@@ -432,15 +435,15 @@ final class ValueComputer extends PrismComponent
 		return allValues.toArray(new Function[0]);
 	}
 
-	private void storeValues(PropType propType, StateValues b1, StateValues b2,
-			Rewards<?> rew, Scheduler scheduler, boolean min, StateValues values, Function[] compare) {
+	private void storeValues(PropType propType, StateValues b1, StateValues b2, Rewards<?> rew, Scheduler scheduler,
+			boolean min, StateValues values, Function[] compare) {
 		ResultCacheKey cacheKey = new ResultCacheKey(propType, b1, b2, rew, scheduler, min);
 		ResultCacheEntry resultCacheEntry = new ResultCacheEntry(values, compare);
 		resultCache.put(cacheKey, resultCacheEntry);
 	}
 
-	private ResultCacheEntry lookupValues(PropType propType, StateValues b1, StateValues b2,
-			Rewards<?> rew, Scheduler scheduler, boolean min) {
+	private ResultCacheEntry lookupValues(PropType propType, StateValues b1, StateValues b2, Rewards<?> rew,
+			Scheduler scheduler, boolean min) {
 		ResultCacheKey cacheKey = new ResultCacheKey(propType, b1, b2, rew, scheduler, min);
 		ResultCacheEntry resultCacheEntry = resultCache.get(cacheKey);
 		return resultCacheEntry;
@@ -448,33 +451,35 @@ final class ValueComputer extends PrismComponent
 
 	/**
 	 * Compute an optimal scheduler for Pmin/Pmax[ b1 U b2 ] or Rmin/Rmax[ b1 U b2 ]
-	 * at the given parameter instantiation (point).
-	 * <br>
+	 * at the given parameter instantiation (point). <br>
 	 * In parametric mode, returns {@code null} if the given point leads to a model
-	 * that is not well-formed, i.e., where transition probabilities are not actually
-	 * probabilities or graph-preserving, or the rewards are negative (not supported for MDPs).
-	 * <br>
-	 * In exact mode, throws an exception if there are negative rewards (not supported for MDPs).
-	 * <br>
+	 * that is not well-formed, i.e., where transition probabilities are not
+	 * actually probabilities or graph-preserving, or the rewards are negative (not
+	 * supported for MDPs). <br>
+	 * In exact mode, throws an exception if there are negative rewards (not
+	 * supported for MDPs). <br>
 	 * This method expects an initial scheduler that ensures that policy iteration
 	 * will converge.
 	 *
-	 * @param point The point (parameter valuation) where the model should be instantiated
-	 * @param mdp the model
-	 * @param b1 the set of 'safe' states
-	 * @param b2 the set of 'target' states
-	 * @param min compute min or max? true = min
-	 * @param mdpRewards if non-null, compute reachability reward
+	 * @param point            The point (parameter valuation) where the model
+	 *                         should be instantiated
+	 * @param mdp              the model
+	 * @param b1               the set of 'safe' states
+	 * @param b2               the set of 'target' states
+	 * @param min              compute min or max? true = min
+	 * @param mdpRewards       if non-null, compute reachability reward
 	 * @param initialScheduler an initial scheduler
 	 * @return an optimal scheduler
 	 */
-	Scheduler computeOptConcreteReachScheduler(Point point, MDP<Function> mdp, StateValues b1, StateValues b2, boolean min, MDPRewards<Function> mdpRewards, Scheduler initialScheduler) throws PrismException
-	{
+	Scheduler computeOptConcreteReachScheduler(Point point, MDP<Function> mdp, StateValues b1, StateValues b2,
+			boolean min, MDPRewards<Function> mdpRewards, Scheduler initialScheduler) throws PrismException {
 		// Instantiate MDP/reward with parameter values
-		MDP<Function> mdpConcrete = new MDPSimple<Function>(mdp, r -> functionFactory.fromBigRational(r.evaluate(point)));
+		MDP<Function> mdpConcrete = new MDPSimple<Function>(mdp,
+				r -> functionFactory.fromBigRational(r.evaluate(point)));
 		MDPRewards<Function> mdpRewardsConcrete = null;
 		if (mdpRewards != null) {
-			mdpRewardsConcrete = new MDPRewardsSimple<>(mdpRewards, mdp, r -> functionFactory.fromBigRational(r.evaluate(point)));
+			mdpRewardsConcrete = new MDPRewardsSimple<>(mdpRewards, mdp,
+					r -> functionFactory.fromBigRational(r.evaluate(point)));
 		}
 
 		// Check that instantiated MDP is well defined (underlying graph is preserved)
@@ -485,7 +490,8 @@ final class ValueComputer extends PrismComponent
 					Entry<Integer, Function> e = iter.next();
 					BigRational p = e.getValue().asBigRational();
 					if (p.isSpecial() || p.compareTo(BigRational.ONE) == 1 || p.signum() <= 0) {
-						throw new PrismException("Parametric MDP is not well defined: probability in state " + state + " is " + p);
+						throw new PrismException(
+								"Parametric MDP is not well defined: probability in state " + state + " is " + p);
 					}
 				}
 			}
@@ -499,14 +505,15 @@ final class ValueComputer extends PrismComponent
 		boolean changed = true;
 		while (changed) {
 			DTMC<Function> dtmcConcrete = new DTMCFromMDPMemorylessAdversary<>(mdpConcrete, scheduler.choices);
-			MCRewards<Function> mcRewardsConcrete = mdpRewardsConcrete == null ? null : new MCRewardsFromMDPRewards<>(mdpRewardsConcrete, scheduler.choices);
+			MCRewards<Function> mcRewardsConcrete = mdpRewardsConcrete == null ? null
+					: new MCRewardsFromMDPRewards<>(mdpRewardsConcrete, scheduler.choices);
 			MutablePMC pmc = buildAlterablePMCForReach(dtmcConcrete, b1, b2, mcRewardsConcrete);
 			StateValues fnValues = computeValues(pmc, mdpConcrete.getFirstInitialState());
 			BigRational[] values = new BigRational[fnValues.getNumStates()];
 			for (int state = 0; state < mdpConcrete.getNumStates(); state++) {
 				values[state] = fnValues.getStateValueAsFunction(state).asBigRational();
 			}
-					
+
 			changed = false;
 			for (int state = 0; state < mdpConcrete.getNumStates(); state++) {
 				if (!b1.getStateValueAsBoolean(state) || b2.getStateValueAsBoolean(state)) {
@@ -540,21 +547,20 @@ final class ValueComputer extends PrismComponent
 
 		return scheduler;
 	}
-	
-	private void storeScheduler(PropType propType, StateValues b1, StateValues b2, boolean min,
-			Rewards<?> rew, Scheduler scheduler) {
+
+	private void storeScheduler(PropType propType, StateValues b1, StateValues b2, boolean min, Rewards<?> rew,
+			Scheduler scheduler) {
 		SchedulerCacheKey cacheKey = new SchedulerCacheKey(propType, b1, b2, min, rew, null);
 		ArrayList<Scheduler> schedulers = schedCache.get(cacheKey);
 		if (schedulers == null) {
 			schedulers = new ArrayList<Scheduler>();
 			schedCache.put(cacheKey, schedulers);
 		}
-		schedulers.add(scheduler);		
+		schedulers.add(scheduler);
 	}
 
 	private Scheduler lookupScheduler(Point point, MDP<Function> mdp, PropType propType, StateValues b1, StateValues b2,
-			boolean min, Rewards<?> rew)
-	{
+			boolean min, Rewards<?> rew) {
 		SchedulerCacheKey cacheKey = new SchedulerCacheKey(propType, b1, b2, min, rew, null);
 		ArrayList<Scheduler> schedulers = schedCache.get(cacheKey);
 		if (schedulers == null) {
@@ -570,13 +576,12 @@ final class ValueComputer extends PrismComponent
 		return null;
 	}
 
-	private boolean checkScheduler(final Point point, final PropType propType, final StateValues b1, final StateValues b2,
-			final boolean min, final Rewards<?> rew, final Scheduler scheduler)
-	{
+	private boolean checkScheduler(final Point point, final PropType propType, final StateValues b1,
+			final StateValues b2, final boolean min, final Rewards<?> rew, final Scheduler scheduler) {
 		ResultCacheKey resultKey = new ResultCacheKey(propType, b1, b2, rew, scheduler, min);
 		ResultCacheEntry resultCacheEntry = resultCache.get(resultKey);
-		
-		Function compare[] = resultCacheEntry.getCompare();		
+
+		Function compare[] = resultCacheEntry.getCompare();
 		for (Function entry : compare) {
 			if (entry.evaluate(point, false).signum() == -1) {
 				return false;
@@ -586,26 +591,22 @@ final class ValueComputer extends PrismComponent
 	}
 
 	/**
-	 * Perform precomputation for policy iteration.
-	 * <br>
-	 * For Pmin, if possible, for states with Pmin[ b1 U b2 ] = 0, generate zero scheduler.
-	 * <br>
-	 * For Rmin, generate a proper scheduler, i.e., with P^sched[ b1 U b2 ] = 1
-	 * to get proper convergence in policy iteration.
-	 * Assumes that states with Pmax[ b1 U b2 ] &lt; 1 have been filtered beforehand
-	 * and are not contained in b1 or b2.
-	 * <br>
+	 * Perform precomputation for policy iteration. <br>
+	 * For Pmin, if possible, for states with Pmin[ b1 U b2 ] = 0, generate zero
+	 * scheduler. <br>
+	 * For Rmin, generate a proper scheduler, i.e., with P^sched[ b1 U b2 ] = 1 to
+	 * get proper convergence in policy iteration. Assumes that states with Pmax[ b1
+	 * U b2 ] &lt; 1 have been filtered beforehand and are not contained in b1 or
+	 * b2. <br>
 	 * In case of maximal accumulated reward or probabilities, currently does
-	 * nothing.
-	 * <br>
-	 * If {@code rew == null}, performs reachability, otherwise
-	 * performs accumulated reward computation. {@code b2} is the target set
-	 * for reachability probabilities or accumulated rewards. {@code b1} is
-	 * either constantly {@code true} or describes the left side of an until
-	 * property.
+	 * nothing. <br>
+	 * If {@code rew == null}, performs reachability, otherwise performs accumulated
+	 * reward computation. {@code b2} is the target set for reachability
+	 * probabilities or accumulated rewards. {@code b1} is either constantly
+	 * {@code true} or describes the left side of an until property.
 	 */
-	private void precomputeScheduler(MDP<Function> mdp, Scheduler sched, StateValues b1, StateValues b2, MDPRewards<Function> rew, boolean min) throws PrismException
-	{
+	private void precomputeScheduler(MDP<Function> mdp, Scheduler sched, StateValues b1, StateValues b2,
+			MDPRewards<Function> rew, boolean min) throws PrismException {
 		if (rew == null) {
 			// probability case
 			if (min) {
@@ -620,14 +621,13 @@ final class ValueComputer extends PrismComponent
 	}
 
 	/**
-	 * Precomputation for policy iteration, Rmin.
-	 * For Rmin, generate a proper scheduler, i.e., with P^sched[ b1 U b2 ] = 1
-	 * to get proper convergence in policy iteration.
-	 * Assumes that states with Pmax[ b1 U b2 ] &lt; 1 have been filtered beforehand
-	 * and are not contained in b1 or b2.
+	 * Precomputation for policy iteration, Rmin. For Rmin, generate a proper
+	 * scheduler, i.e., with P^sched[ b1 U b2 ] = 1 to get proper convergence in
+	 * policy iteration. Assumes that states with Pmax[ b1 U b2 ] &lt; 1 have been
+	 * filtered beforehand and are not contained in b1 or b2.
 	 */
-	private void precomputeRminProperScheduler(MDP<Function> mdp, Scheduler sched, StateValues b1, StateValues b2) throws PrismException
-	{
+	private void precomputeRminProperScheduler(MDP<Function> mdp, Scheduler sched, StateValues b1, StateValues b2)
+			throws PrismException {
 		explicit.MDPModelChecker mcExplicit = new explicit.MDPModelChecker(this);
 		mcExplicit.setSilentPrecomputations(true);
 		int[] strat = new int[mdp.getNumStates()];
@@ -636,28 +636,26 @@ final class ValueComputer extends PrismComponent
 		mcExplicit.prob1(mdp, b1bs, b2.toBitSet(), false, strat);
 
 		for (int s : IterableBitSet.getSetBits(b1bs)) {
-			assert(strat[s] >= 0);
+			assert (strat[s] >= 0);
 			sched.setChoice(s, strat[s]);
 		}
 	}
 
 	/**
-	 * Precomputation for policy iteration, Pmin.
-	 * Sets decisions of {@code sched} such that states which have a minimal
-	 * reachability probability of zero do already have a minimal value of zero
-	 * if using this schedulers. For states with minimal value larger than zero,
-	 * this scheduler needs not be minimising.
+	 * Precomputation for policy iteration, Pmin. Sets decisions of {@code sched}
+	 * such that states which have a minimal reachability probability of zero do
+	 * already have a minimal value of zero if using this schedulers. For states
+	 * with minimal value larger than zero, this scheduler needs not be minimising.
 	 * {@code b2} is the target set for reachability probabilities. {@code b1} is
 	 * either constantly {@code true} or describes the left side of an until
 	 * property.
 	 * 
-	 * @param mdp Markov model to precompute for
+	 * @param mdp   Markov model to precompute for
 	 * @param sched scheduler to precompute
-	 * @param b1 left side of U property, or constant true
-	 * @param b2 right side of U property, or of reachability reward
+	 * @param b1    left side of U property, or constant true
+	 * @param b2    right side of U property, or of reachability reward
 	 */
-	private void precomputePmin(MDP<Function> mdp, Scheduler sched, StateValues b1, StateValues b2)
-	{
+	private void precomputePmin(MDP<Function> mdp, Scheduler sched, StateValues b1, StateValues b2) {
 		BitSet ones = new BitSet(mdp.getNumStates());
 		for (int state = 0; state < mdp.getNumStates(); state++) {
 			ones.set(state, b2.getStateValueAsBoolean(state));
@@ -695,11 +693,12 @@ final class ValueComputer extends PrismComponent
 	/**
 	 * Build a MutablePMC object for a probabilistic/reward reach problem.
 	 */
-	private MutablePMC buildAlterablePMCForReach(DTMC<Function> dtmc, StateValues b1, StateValues b2, MCRewards<Function> mcRewards) throws PrismException
-	{
+	private MutablePMC buildAlterablePMCForReach(DTMC<Function> dtmc, StateValues b1, StateValues b2,
+			MCRewards<Function> mcRewards) throws PrismException {
 		MutablePMC pmc = buildAlterablePMC(dtmc, b2.toBitSet(), b1.toBitSet(), mcRewards != null, false);
 		if (mcRewards != null) {
-			setPMCReward(pmc, s -> b2.toBitSet().get(s) ? functionFactory.getZero() : b1.toBitSet().get(s) ? mcRewards.getStateReward(s) : functionFactory.getInf());
+			setPMCReward(pmc, s -> b2.toBitSet().get(s) ? functionFactory.getZero()
+					: b1.toBitSet().get(s) ? mcRewards.getStateReward(s) : functionFactory.getInf());
 		}
 		if (dtmc.getModelType() == ModelType.CTMC && mcRewards != null) {
 			normalisePMCRewards(pmc, (CTMC<Function>) dtmc);
@@ -709,14 +708,16 @@ final class ValueComputer extends PrismComponent
 
 	/**
 	 * Build a MutablePMC object, copying transitions from a DTMC/CTMC
-	 * @param dtmc D/CTMC to extract transitions an dinitial states from
-	 * @param target States to note as target in MutablePMC
-	 * @param nonSink Only copy transitions for (non-target) states from here (null = all)
+	 * 
+	 * @param dtmc       D/CTMC to extract transitions an dinitial states from
+	 * @param target     States to note as target in MutablePMC
+	 * @param nonSink    Only copy transitions for (non-target) states from here
+	 *                   (null = all)
 	 * @param useRewards Flag to set in MutablePMC
-	 * @param useTime Flag to set in MutablePMC
+	 * @param useTime    Flag to set in MutablePMC
 	 */
-	private MutablePMC buildAlterablePMC(DTMC<Function> dtmc, BitSet target, BitSet nonSink, boolean useRewards, boolean useTime) throws PrismException
-	{
+	private MutablePMC buildAlterablePMC(DTMC<Function> dtmc, BitSet target, BitSet nonSink, boolean useRewards,
+			boolean useTime) throws PrismException {
 		// Switch to embedded DTMC for a CTMC
 		if (dtmc.getModelType() == ModelType.CTMC) {
 			dtmc = ((CTMC<Function>) dtmc).getImplicitEmbeddedDTMC();
@@ -743,8 +744,7 @@ final class ValueComputer extends PrismComponent
 	/**
 	 * Set the reward for each state s in a MutablePMC to f(s).
 	 */
-	private void setPMCReward(MutablePMC pmc, java.util.function.Function<Integer,Function> f)
-	{
+	private void setPMCReward(MutablePMC pmc, java.util.function.Function<Integer, Function> f) {
 		int numStates = pmc.getNumStates();
 		for (int s = 0; s < numStates; s++) {
 			pmc.setReward(s, f.apply(s));
@@ -754,8 +754,7 @@ final class ValueComputer extends PrismComponent
 	/**
 	 * Divide the rewards in a MutablePMC by the exit rates of a CTMC.
 	 */
-	private void normalisePMCRewards(MutablePMC pmc, CTMC<Function> ctmc)
-	{
+	private void normalisePMCRewards(MutablePMC pmc, CTMC<Function> ctmc) {
 		int numStates = pmc.getNumStates();
 		for (int s = 0; s < numStates; s++) {
 			pmc.setReward(s, pmc.getReward(s).divide(ctmc.getExitRate(s)));
@@ -765,16 +764,14 @@ final class ValueComputer extends PrismComponent
 	/**
 	 * Divide the rewards in a MutablePMC by the exit rates of a CTMC.
 	 */
-	private void normalisePMCTimes(MutablePMC pmc, CTMC<Function> ctmc)
-	{
+	private void normalisePMCTimes(MutablePMC pmc, CTMC<Function> ctmc) {
 		int numStates = pmc.getNumStates();
 		for (int s = 0; s < numStates; s++) {
 			pmc.setTime(s, pmc.getTime(s).divide(ctmc.getExitRate(s)));
 		}
 	}
 
-	private StateValues computeValues(MutablePMC pmc, int initState)
-	{
+	private StateValues computeValues(MutablePMC pmc, int initState) {
 		Lumper lumper;
 		switch (bisimType) {
 		case NULL:
@@ -786,20 +783,22 @@ final class ValueComputer extends PrismComponent
 		case WEAK:
 			if (pmc.isUseRewards()) {
 				lumper = new StrongLumper(pmc);
-			} else{
+			} else {
 				lumper = new WeakLumper(pmc);
 			}
 			break;
 		default:
-			throw new RuntimeException("invalid bisimulation method"); 
+			throw new RuntimeException("invalid bisimulation method");
 		}
 		if (lumper instanceof WeakLumper && pmc.isUseTime()) {
 			lumper = new StrongLumper(pmc);
 		}
-		
+
 		MutablePMC quot = lumper.getQuotient();
-		StateEliminator eliminator = new StateEliminator(quot, eliminationOrder);
-		eliminator.eliminate();
+		quot.setInitState(initState, true);
+		StateEliminator eliminator = new StateEliminator(quot, getEliminationOrderIterator(eliminationOrder, quot, initState));
+		Timer.time(() -> eliminator.eliminate(), "eliminate()");
+		System.out.println("Elimination caluclations: " + eliminator.getCalculations());
 		int[] origToCopy = lumper.getOriginalToOptimised();
 		StateValues result = new StateValues(pmc.getNumStates(), initState);
 		for (int state = 0; state < origToCopy.length; state++) {
@@ -808,10 +807,27 @@ final class ValueComputer extends PrismComponent
 		return result;
 	}
 
-	private RegionValues computeSteadyState(Model<?> model, Region region, StateValues b1, boolean min, Rewards<?> rew) throws PrismException
-	{
+	public EliminationOrderIterator getEliminationOrderIterator(EliminationOrder order, MutablePMC pmc,
+			int initialState) {
+		switch (order) {
+		case FORWARD:
+			return new ForwardOrder(pmc, initialState);
+		case FORWARD_REVERSED:
+			return new ForwardReverseOrder(pmc, initialState);
+		case BACKWARD:
+			return new BackwardOrder(pmc, initialState, true);
+		case BACKWARD_REVERSED:
+			return new BackwardReverseOrder(pmc, initialState, true);
+		default:
+			throw new RuntimeException("Elimination order not implemented: " + order.name());
+		}
+	}
+
+	private RegionValues computeSteadyState(Model<?> model, Region region, StateValues b1, boolean min, Rewards<?> rew)
+			throws PrismException {
 		if (!(model.getModelType() == ModelType.DTMC || model.getModelType() == ModelType.CTMC)) {
-			throw new PrismNotSupportedException("Parametric steady state computation not supported for " + model.getModelType());
+			throw new PrismNotSupportedException(
+					"Parametric steady state computation not supported for " + model.getModelType());
 		}
 
 		MCRewards<Function> mcRewards = (MCRewards<Function>) rew;
@@ -823,7 +839,8 @@ final class ValueComputer extends PrismComponent
 			if (rew != null) {
 				setPMCReward(pmc, s -> ((MCRewards<Function>) rew).getStateReward(s));
 			} else {
-				setPMCReward(pmc, s -> b1.getStateValueAsBoolean(s) ? functionFactory.getOne() : functionFactory.getZero());
+				setPMCReward(pmc,
+						s -> b1.getStateValueAsBoolean(s) ? functionFactory.getOne() : functionFactory.getZero());
 			}
 			if (model.getModelType() == ModelType.CTMC) {
 				normalisePMCRewards(pmc, (CTMC<Function>) model);
@@ -839,15 +856,14 @@ final class ValueComputer extends PrismComponent
 		return result;
 	}
 
-	
-	public RegionValues computeSteadyState(Model<?> model, RegionValues b, boolean min, Rewards<?> rew) throws PrismException
-	{
+	public RegionValues computeSteadyState(Model<?> model, RegionValues b, boolean min, Rewards<?> rew)
+			throws PrismException {
 		RegionValues result = new RegionValues(regionFactory);
 		for (Entry<Region, StateValues> entry : b) {
 			Region region = entry.getKey();
 			StateValues value = entry.getValue();
 			RegionValues val = computeSteadyState(model, region, value, min, rew);
-			result.addAll(val);			
+			result.addAll(val);
 		}
 		return result;
 	}

@@ -59,8 +59,8 @@ final class StrongLumper extends Lumper {
 	private HashMap<HashSet<Integer>, Function> stateSignature(int state)
 	{
 		HashMap<HashSet<Integer>, Function> signature = new HashMap<HashSet<Integer>, Function>();
-		ListIterator<Integer> toStateIter = origPmc.transitionTargets.get(state).listIterator();
-		ListIterator<Function> toProbIter = origPmc.transitionProbs.get(state).listIterator();
+		ListIterator<Integer> toStateIter = origPmc.getTransitionTargets().get(state).listIterator();
+		ListIterator<Function> toProbIter = origPmc.getTransitionProbs().get(state).listIterator();
 		while (toStateIter.hasNext()) {
 			int toState = toStateIter.next();
 			Function toStateProb = toProbIter.next();

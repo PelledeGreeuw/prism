@@ -60,7 +60,7 @@ import java.util.List;
 import explicit.rewards.ConstructRewards;
 import explicit.rewards.Rewards;
 import param.Lumper.BisimType;
-import param.StateEliminator.EliminationOrder;
+import param.elimination.EliminationOrder;
 import parser.EvaluateContext;
 import parser.State;
 import parser.Values;

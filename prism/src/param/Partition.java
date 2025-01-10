@@ -144,7 +144,7 @@ final class Partition {
 		}
 		for (HashSet<Integer> block : newBlocks) {
 			for (int state : block) {		
-				for (int predec : pmc.incoming.get(state)) {
+				for (int predec : pmc.getIncoming().get(state)) {
 					HashSet<Integer> predecBlock = stateToBlock.get(predec);
 					if (!nextBlock.contains(predec) && !mayChangeHash.contains(predecBlock) && (predecBlock.size() > 1)) {
 						mayChange.add(predecBlock);

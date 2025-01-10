@@ -26,21 +26,24 @@
 
 package param;
 
+import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.ListIterator;
+import java.util.stream.IntStream;
 
 /**
- * Representation of mutable parametric Markov chain.
- * This class is intended to be used in combination with the
- * {@code StateEliminator}, which uses this class to compute values of
- * parametric Markov models.
+ * Representation of mutable parametric Markov chain. This class is intended to
+ * be used in combination with the {@code StateEliminator}, which uses this
+ * class to compute values of parametric Markov models.
  * 
  * @author Ernst Moritz Hahn <emhahn@cs.ox.ac.uk> (University of Oxford)
  * @see StateEliminator
  */
-final class MutablePMC {
+public final class MutablePMC {
 	/** function factory to which functions in this object belong */
 	private FunctionFactory functionFactory;
 	/** assignment of rewards to each state */
@@ -48,10 +51,12 @@ final class MutablePMC {
 	/** assignment of time to each state */
 	private Function[] times;
 	/** for each state, provides list of leaving transition probabilities */
-	ArrayList<LinkedList<Function>> transitionProbs;
+	private ArrayList<LinkedList<Function>> transitionProbs;
 	/** for each state, provides list of leaving transition targets */
 	ArrayList<LinkedList<Integer>> transitionTargets;
-	/** for each state, provides list of states which have transitions to this state */
+	/**
+	 * for each state, provides list of states which have transitions to this state
+	 */
 	ArrayList<LinkedList<Integer>> incoming;
 	/** true iff uses a reward structure */
 	private boolean useRewards;
@@ -68,20 +73,23 @@ final class MutablePMC {
 	 * Constructs a new mutable parametric Markov chain.
 	 * 
 	 * @param functionFactory function factory used to maintain rational functions
-	 * @param numStates total number of states this parametric Markov chain shall have
-	 * @param useRewards true iff parametric Markov chain constructed shall use rewards
-	 * @param useTime true iff parametric Markov chain constructed needs time entry
+	 * @param numStates       total number of states this parametric Markov chain
+	 *                        shall have
+	 * @param useRewards      true iff parametric Markov chain constructed shall use
+	 *                        rewards
+	 * @param useTime         true iff parametric Markov chain constructed needs
+	 *                        time entry
 	 */
 	MutablePMC(FunctionFactory functionFactory, int numStates, boolean useRewards, boolean useTime) {
 		this.numStates = numStates;
 		this.functionFactory = functionFactory;
 		transitionProbs = new ArrayList<LinkedList<Function>>(numStates);
 		transitionTargets = new ArrayList<LinkedList<Integer>>(numStates);
-		incoming = new ArrayList<LinkedList<Integer>>(numStates);		
+		incoming = new ArrayList<LinkedList<Integer>>(numStates);
 		for (int state = 0; state < numStates; state++) {
-			transitionTargets.add(new LinkedList<Integer>());
-			transitionProbs.add(new LinkedList<Function>());
-			incoming.add(new LinkedList<Integer>());
+			getTransitionTargets().add(new LinkedList<Integer>());
+			getTransitionProbs().add(new LinkedList<Function>());
+			getIncoming().add(new LinkedList<Integer>());
 		}
 		this.useRewards = useRewards;
 		this.useTime = useTime;
@@ -100,28 +108,30 @@ final class MutablePMC {
 			}
 		}
 	}
-	
+
+	public BitSet getTargetStates() {
+		return targetStates;
+	}
+
 	/**
 	 * Returns function factory maintaining functions used in this object.
 	 * 
 	 * @return function factory maintaining functions
 	 */
-	FunctionFactory getFunctionFactory()
-	{
+	FunctionFactory getFunctionFactory() {
 		return functionFactory;
 	}
-	
+
 	/**
 	 * Adds a probabilistic transition.
 	 * 
 	 * @param from state transition starts from
-	 * @param to state transition leads to
+	 * @param to   state transition leads to
 	 * @param prob probability of transition
 	 */
-	void addTransition(int from, int to, Function prob)
-	{
-		ListIterator<Integer> toIter = transitionTargets.get(from).listIterator();
-		ListIterator<Function> valIter = transitionProbs.get(from).listIterator();
+	void addTransition(int from, int to, Function prob) {
+		ListIterator<Integer> toIter = getTransitionTargets().get(from).listIterator();
+		ListIterator<Function> valIter = getTransitionProbs().get(from).listIterator();
 		boolean alreadyThere = false;
 		while (toIter.hasNext() && !alreadyThere) {
 			int succ = toIter.next();
@@ -132,24 +142,23 @@ final class MutablePMC {
 			}
 		}
 		if (!alreadyThere) {
-			transitionTargets.get(from).add(to);
-			transitionProbs.get(from).add(prob);
-			incoming.get(to).add(from);
+			getTransitionTargets().get(from).add(to);
+			getTransitionProbs().get(from).add(prob);
+			getIncoming().get(to).add(from);
 		}
 	}
-	
+
 	/**
 	 * Returns the probability of a given transition
 	 * 
 	 * @param from source state of transition
-	 * @param to target state of transition
+	 * @param to   target state of transition
 	 * @return probability to move from given state to given state
 	 */
-	Function getTransProb(int from, int to)
-	{
+	Function getTransProb(int from, int to) {
 		Function prob = null;
-		ListIterator<Integer> toIter = transitionTargets.get(from).listIterator();
-		ListIterator<Function> valIter = transitionProbs.get(from).listIterator();		
+		ListIterator<Integer> toIter = getTransitionTargets().get(from).listIterator();
+		ListIterator<Function> valIter = getTransitionProbs().get(from).listIterator();
 		while (toIter.hasNext()) {
 			int succ = toIter.next();
 			Function succProb = valIter.next();
@@ -158,26 +167,25 @@ final class MutablePMC {
 				break;
 			}
 		}
-		
+
 		if (prob == null) {
 			prob = functionFactory.getZero();
 		}
-		
+
 		return prob;
 	}
-	
+
 	/**
 	 * Returns probability of the self-loop in a given state.
 	 * 
 	 * @param state state to return self-loop probability of
 	 * @return self-loop probability of given state
 	 */
-	Function getSelfLoopProb(int state)
-	{
+	Function getSelfLoopProb(int state) {
 		Function loopProb = null;
-		
-		ListIterator<Integer> toIter = transitionTargets.get(state).listIterator();
-		ListIterator<Function> valIter = transitionProbs.get(state).listIterator();		
+
+		ListIterator<Integer> toIter = getTransitionTargets().get(state).listIterator();
+		ListIterator<Function> valIter = getTransitionProbs().get(state).listIterator();
 		while (toIter.hasNext()) {
 			int to = toIter.next();
 			Function val = valIter.next();
@@ -189,57 +197,83 @@ final class MutablePMC {
 		if (loopProb == null) {
 			loopProb = functionFactory.getZero();
 		}
-		
+
 		return loopProb;
 	}
-	
+
+	int getNumTransitions() {
+		int c = 0;
+		for (int i = 0; i < numStates; i++) {
+			if (initStates.get(i)) {
+				c += transitionProbs.get(i).size();
+			} else if (!incoming.get(i).isEmpty()) {
+				c += transitionProbs.get(i).size();
+			}
+		}
+		return IntStream.range(0, numStates).filter(a -> initStates.get(a) || !incoming.get(a).isEmpty())
+				.map(a -> transitionProbs.get(a).size()).sum();
+	}
+
+	public void printInitialStates() {
+		printContainingStates(initStates, "initStates");
+	}
+
+	public void printTargetStates() {
+		printContainingStates(targetStates, "targetStates");
+	}
+
+	public void printContainingStates(BitSet set, String name) {
+		List<String> states = new ArrayList<>();
+		for (int i = 0; i < numStates; i++) {
+			if (set.get(i)) {
+				states.add(String.valueOf(i));
+			}
+		}
+		System.out.println(MessageFormat.format("{0}: [{1}]", name, String.join(",", states)));
+	}
+
 	/**
-	 * Makes a given state absorbing.
-	 * This means removing all leaving transitions and adding a self-loop
-	 * with probability one.
+	 * Makes a given state absorbing. This means removing all leaving transitions
+	 * and adding a self-loop with probability one.
 	 * 
 	 * @param state state to make absorbing
 	 */
-	void makeAbsorbing(int state)
-	{
+	void makeAbsorbing(int state) {
 		LinkedList<Integer> loop = new LinkedList<Integer>();
 		loop.add(state);
 		LinkedList<Function> one = new LinkedList<Function>();
 		one.add(functionFactory.getOne());
-		transitionTargets.set(state, loop);
-		transitionProbs.set(state, one);
+		getTransitionTargets().set(state, loop);
+		getTransitionProbs().set(state, one);
 	}
 
 	/**
 	 * Sets whether given state shall be an initial state
 	 * 
-	 * @param state state which shall or shall not be an initial state
+	 * @param state       state which shall or shall not be an initial state
 	 * @param targetState true iff given state shall be an initial state
 	 */
-	void setInitState(int state, boolean targetState)
-	{
+	void setInitState(int state, boolean targetState) {
 		initStates.set(state, targetState);
 	}
 
 	/**
 	 * Sets whether given state shall be a target state
 	 * 
-	 * @param state state which shall or shall not be a target state
+	 * @param state       state which shall or shall not be a target state
 	 * @param targetState true iff given state shall be a target state
 	 */
-	void setTargetState(int state, boolean targetState)
-	{
+	void setTargetState(int state, boolean targetState) {
 		targetStates.set(state, targetState);
 	}
-	
+
 	/**
 	 * Set reward of a given state.
 	 * 
-	 * @param state state to set reward of
+	 * @param state  state to set reward of
 	 * @param reward reward to set for given state
 	 */
-	void setReward(int state, Function reward)
-	{
+	void setReward(int state, Function reward) {
 		rewards[state] = reward;
 	}
 
@@ -247,10 +281,9 @@ final class MutablePMC {
 	 * Set time of a given state.
 	 * 
 	 * @param state state to set reward of
-	 * @param time time to set for given state
+	 * @param time  time to set for given state
 	 */
-	void setTime(int state, Function time)
-	{
+	void setTime(int state, Function time) {
 		times[state] = time;
 	}
 
@@ -260,19 +293,17 @@ final class MutablePMC {
 	 * @param state state to get time of
 	 * @return time of given state
 	 */
-	Function getTime(int state)
-	{
+	Function getTime(int state) {
 		return times[state];
 	}
-	
+
 	/**
 	 * Checks whether given state is a target state.
 	 * 
 	 * @param state state to check whether it is a target state
 	 * @return true iff given state is a target state
 	 */
-	boolean isTargetState(int state)
-	{
+	public boolean isTargetState(int state) {
 		return targetStates.get(state);
 	}
 
@@ -281,19 +312,17 @@ final class MutablePMC {
 	 * 
 	 * @return true iff there are some target states
 	 */
-	boolean hasTargetStates()
-	{
+	public boolean hasTargetStates() {
 		return targetStates.cardinality() != 0;
 	}
-	
+
 	/**
 	 * Checks whether given state is an initial state.
 	 * 
 	 * @param state state to check whether it is an initial state
 	 * @return true iff given state is an initial state
 	 */
-	boolean isInitState(int state)
-	{
+	public boolean isInitState(int state) {
 		return initStates.get(state);
 	}
 
@@ -303,59 +332,57 @@ final class MutablePMC {
 	 * @param state state to get reward of
 	 * @return reward of given state
 	 */
-	Function getReward(int state)
-	{
+	Function getReward(int state) {
 		return rewards[state];
 	}
-	
+
 	/**
 	 * Returns number of states.
 	 * 
 	 * @return number of states
 	 */
-	int getNumStates()
-	{
+	public int getNumStates() {
 		return numStates;
 	}
-	
+
 	/**
 	 * Returns whether pmc uses rewards.
 	 * 
 	 * @return true iff rewards are used
 	 */
-	boolean isUseRewards()
-	{
+	boolean isUseRewards() {
 		return useRewards;
 	}
-	
+
 	/**
 	 * Returns whether pmc uses time.
 	 * 
 	 * @return true iff uses time
 	 */
-	boolean isUseTime()
-	{
+	boolean isUseTime() {
 		return useTime;
 	}
-	
-	/*
-	@Override
-	public String toString()
-	{
-		StringBuilder result = new StringBuilder();
-		
-		for (int state = 0; state < numStates; state++) {
-			result.append("state " + state);
-			if (useRewards) {
-				result.append(" " + rewards[state]);
-			}
-			if (useTime) {
-				result.append(" " + times[state]);
-			}
-			result.append("\n");
-		}
-		
-		return result.toString();
+
+	public ArrayList<LinkedList<Function>> getTransitionProbs() {
+		return transitionProbs;
 	}
-	*/
+
+	public ArrayList<LinkedList<Integer>> getTransitionTargets() {
+		return transitionTargets;
+	}
+
+	public ArrayList<LinkedList<Integer>> getIncoming() {
+		return incoming;
+	}
+
+	/*
+	 * @Override public String toString() { StringBuilder result = new
+	 * StringBuilder();
+	 * 
+	 * for (int state = 0; state < numStates; state++) { result.append("state " +
+	 * state); if (useRewards) { result.append(" " + rewards[state]); } if (useTime)
+	 * { result.append(" " + times[state]); } result.append("\n"); }
+	 * 
+	 * return result.toString(); }
+	 */
 }
