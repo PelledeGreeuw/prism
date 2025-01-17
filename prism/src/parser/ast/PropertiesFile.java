@@ -136,6 +136,10 @@ public class PropertiesFile extends ASTElement
 		properties.get(i).setExpression(p);
 	}
 
+	public ArrayList<Property> getProperties() {
+		return properties;
+	}
+
 	/**
 	 * Insert the contents of another PropertiesFile (just a shallow copy).
 	 */

@@ -165,22 +165,7 @@ final public class ParamModelChecker extends PrismComponent
 		} else {
 			throw new PrismException("unknown region splitting method " + splitMethodString);				
 		}
-		String eliminationOrderString = settings.getString(PrismSettings.PRISM_PARAM_ELIM_ORDER);
-		if (eliminationOrderString.equals("Arbitrary")) {
-			eliminationOrder = EliminationOrder.ARBITRARY;
-		} else if (eliminationOrderString.equals("Forward")) {
-			eliminationOrder = EliminationOrder.FORWARD;
-		} else if (eliminationOrderString.equals("Forward-reversed")) {
-			eliminationOrder = EliminationOrder.FORWARD_REVERSED;
-		} else if (eliminationOrderString.equals("Backward")) {
-			eliminationOrder = EliminationOrder.BACKWARD;
-		} else if (eliminationOrderString.equals("Backward-reversed")) {
-			eliminationOrder = EliminationOrder.BACKWARD_REVERSED;
-		} else if (eliminationOrderString.equals("Random")) {
-			eliminationOrder = EliminationOrder.RANDOM;
-		} else {
-			throw new PrismException("unknown state elimination order " + eliminationOrderString);				
-		}
+		eliminationOrder = EliminationOrder.valueOf(settings.getString(PrismSettings.PRISM_PARAM_ELIM_ORDER));
 		numRandomPoints = settings.getInteger(PrismSettings.PRISM_PARAM_RANDOM_POINTS);
 		String bisimTypeString = settings.getString(PrismSettings.PRISM_PARAM_BISIM);
 		if (bisimTypeString.equals("Weak")) {

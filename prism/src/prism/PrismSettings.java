@@ -36,8 +36,10 @@ import javax.swing.*;
 
 import common.iterable.Range;
 import explicit.QuantAbstractRefine;
+import param.elimination.EliminationOrder;
 
 import java.util.regex.*;
+import java.util.stream.Collectors;
 
 import settings.*;
 
@@ -378,7 +380,7 @@ public class PrismSettings implements Observer
 																			"Type of bisimulation used to reduce model size during paramteric model checking. For reward-based properties, weak bisimulation cannot be used." },
 			{ CHOICE_TYPE,		PRISM_PARAM_FUNCTION,					"Parametric model checking function representation",				"4.1",			"JAS-cached",																"JAS-cached,JAS,DAG",
 																			"Type of representation for functions used during parametric model checking." },
-			{ CHOICE_TYPE,		PRISM_PARAM_ELIM_ORDER,					"Parametric model checking state elimination order",			"4.1",			"Backward",																		"Arbitrary,Forward,Forward-reversed,Backward,Backward-reversed,Random",
+			{ CHOICE_TYPE,		PRISM_PARAM_ELIM_ORDER,					"Parametric model checking state elimination order",			"4.1",			"Backward",																		Arrays.stream(EliminationOrder.values()).map(Enum::name).collect(Collectors.joining(",")),
 																			"Order in which states are eliminated during unbounded parametric model checking analysis." },
 			{ INTEGER_TYPE,		PRISM_PARAM_RANDOM_POINTS,				"Parametric model checking random evaluations",		"4.1",			Integer.valueOf(5),																"",
 																			"Number of random points to evaluate per region to increase chance of correctness during parametric model checking." },
@@ -1618,20 +1620,12 @@ public class PrismSettings implements Observer
 		else if (sw.equals("paramelimorder")) {
 			if (i < args.length - 1) {
 				s = args[++i];
-				if (s.equals("arb"))
-					set(PRISM_PARAM_ELIM_ORDER, "Arbitrary");
-				else if (s.equals("fw"))
-					set(PRISM_PARAM_ELIM_ORDER, "Forward");
-				else if (s.equals("fwrev"))
-					set(PRISM_PARAM_ELIM_ORDER, "Forward-reversed");
-				else if (s.equals("bw"))
-					set(PRISM_PARAM_ELIM_ORDER, "Backward");
-				else if (s.equals("bwrev"))
-					set(PRISM_PARAM_ELIM_ORDER, "Backward-reversed");
-				else if (s.equals("rand"))
-					set(PRISM_PARAM_ELIM_ORDER, "Random");
-				else
-					throw new PrismException("Unrecognised option for -" + sw + " switch (options are: arb,fw,fwrev,bw,bwrev,rand)");
+				try {
+					set(PRISM_PARAM_ELIM_ORDER, EliminationOrder.valueOf(s).name());
+				} catch (IllegalArgumentException  e) {
+					throw new PrismException("Unrecognised option for -" + sw + " switch (options are: " + 
+				Arrays.stream(EliminationOrder.values()).map(Enum::name).collect(Collectors.joining(",")) + ")");
+				}
 			} else {
 				throw new PrismException("No value specified for -" + sw + " switch");
 			}

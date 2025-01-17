@@ -30,9 +30,12 @@ import static param.elimination.BackwardOrder.collectStatesBackward;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.ListIterator;
 
 import param.elimination.EliminationOrderIterator;
+import param.elimination.benchmark.EliminationRunGroup;
+import param.elimination.benchmark.EliminationStep;
 
 /**
  * Performs computation of reachability probabilities and rewards. This class
@@ -48,7 +51,6 @@ import param.elimination.EliminationOrderIterator;
  * @author Ernst Moritz Hahn <emhahn@cs.ox.ac.uk> (University of Oxford)
  */
 final class StateEliminator {
-	long calculations = 0;
 
 	/**
 	 * The order in which states shall be eliminated.
@@ -135,16 +137,11 @@ final class StateEliminator {
 	 * {@code eliminationOrder}.
 	 */
 	void eliminate() {
-		System.out.println("Eliminating states");
 		if (!precompute()) {
 			return;
 		}
-		pmc.printInitialStates();
-		pmc.printTargetStates();
-		System.out.println(pmc.getNumTransitions());
 		while (eliminationOrder.hasNext()) {
 			eliminate(eliminationOrder.next());
-			System.out.println(pmc.getNumTransitions());
 		}
 	}
 
@@ -249,7 +246,6 @@ final class StateEliminator {
 				}
 			}
 		}
-		calculations += newTransitions.size();
 		for (NewTransition newTransition : newTransitions) {
 			pmc.addTransition(newTransition.fromState, newTransition.toState, newTransition.prob);
 		}
@@ -281,10 +277,11 @@ final class StateEliminator {
 			}
 		}
 		pmc.getIncoming().get(midState).clear();
-	}
-
-	public long getCalculations() {
-		return calculations;
+		if (EliminationRunGroup.getInstance().isRecordData()) {
+			EliminationRunGroup.getInstance().getCurrentRun().addStep(
+					new EliminationStep(EliminationRunGroup.getInstance().getCurrentRun().getSteps().size(), 
+							midState, newTransitions.size(), pmc.getNumTransitions()));
+		}
 	}
 
 	/**

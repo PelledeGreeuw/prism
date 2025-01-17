@@ -30,6 +30,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,6 +58,8 @@ import odd.ODDUtils;
 import param.Function;
 import param.ParamMode;
 import param.ParamModelChecker;
+import param.elimination.benchmark.EliminationRun;
+import param.elimination.benchmark.EliminationRunGroup;
 import parser.PrismParser;
 import parser.State;
 import parser.Values;
@@ -3544,8 +3547,10 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		explicit.Model<?> modelExpl = constructModel.constructModel(modelGenFunc);
 		ParamModelChecker mc = new ParamModelChecker(this, ParamMode.PARAMETRIC);
 		mc.setModelCheckingInfo(getPRISMModel(), propertiesFile, modelGenFunc);
+		if (EliminationRunGroup.getInstance().isRecordData()) {
+			EliminationRunGroup.getInstance().newRun(new EliminationRun(prop.toString(), propertiesFile.getProperties().indexOf(prop)));
+		}
 		Result result = mc.check(modelExpl, prop.getExpression());
-
 		return result;
 	}
 

@@ -43,6 +43,7 @@ import common.StackTraceHelper;
 import csv.CsvFormatException;
 import io.ModelExportOptions;
 import io.ModelExportOptions.ModelExportFormat;
+import param.elimination.benchmark.EliminationRunGroup;
 import parser.Values;
 import parser.ast.Expression;
 import parser.ast.ExpressionReward;
@@ -101,6 +102,7 @@ public class PrismCL implements PrismModelListener
 	private boolean exportbsccs = false;
 	private boolean exportmecs = false;
 	private boolean exportresults = false;
+	private boolean exporteliminationbenchmark = true;
 	private ResultsExportShape exportShape = ResultsExportShape.LIST_PLAIN;
 	private boolean exportvector = false;
 	private boolean exportModelNoBasename = false;
@@ -177,6 +179,7 @@ public class PrismCL implements PrismModelListener
 	private String exportSteadyStateFilename = null;
 	private String exportTransientFilename = null;
 	private String exportStratFilename = null;
+	private String exportEliminationBenchmarkFilename = null;
 	private String simpathFilename = null;
 
 	// logs
@@ -230,6 +233,9 @@ public class PrismCL implements PrismModelListener
 
 	// strategy export info
 	private StrategyExportOptions exportStratOptions = null;
+	
+	// elimination order benchmark info
+	private EliminationRunGroup eliminationRunGroup = null;
 	
 	// parametric analysis info
 	private String[] paramLowerBounds = null;
@@ -408,6 +414,14 @@ public class PrismCL implements PrismModelListener
 			doTransient();
 			if (modelBuildFail)
 				continue;
+			if (exporteliminationbenchmark) {
+				EliminationRunGroup.getInstance().setRecordData(exporteliminationbenchmark);
+				try {
+					prism.exportPRISMModel(EliminationRunGroup.getInstance().getModelFile());
+				} catch (FileNotFoundException | PrismException e) {
+					e.printStackTrace();
+				}
+			}
 
 			// Work through list of properties to be checked
 			for (j = 0; j < numPropertiesToCheck; j++) {
@@ -561,6 +575,14 @@ public class PrismCL implements PrismModelListener
 		// export results (if required)
 		if (exportresults) {
 			exportResults();
+		}
+		if (exporteliminationbenchmark) {
+			try {
+				EliminationRunGroup.getInstance().writeDataToFile();
+				EliminationRunGroup.getInstance().compressResults(null);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 		// close down
 		closeDown();

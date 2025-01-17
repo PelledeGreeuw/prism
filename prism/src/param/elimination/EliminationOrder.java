@@ -2,6 +2,7 @@ package param.elimination;
 
 public enum EliminationOrder {
 	/** arbitrary */
+	BENCHMARK,
 	ARBITRARY,
 	/** states close to initial states first */
 	FORWARD,

@@ -46,11 +46,15 @@ import param.elimination.EliminationOrder;
 import param.elimination.EliminationOrderIterator;
 import param.elimination.ForwardOrder;
 import param.elimination.ForwardReverseOrder;
+import param.elimination.benchmark.EliminationRun;
+import param.elimination.benchmark.EliminationRunGroup;
 import prism.ModelType;
 import prism.PrismComponent;
 import prism.PrismException;
 import prism.PrismNotSupportedException;
 
+import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -58,10 +62,17 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map.Entry;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import cern.colt.map.Benchmark;
+
+
 /**
  * Computes values for properties of a parametric Markov model.
  */
 final class ValueComputer extends PrismComponent {
+	private static final Logger logger = LogManager.getLogger(ValueComputer.class);
 	private enum PropType {
 		REACH, STEADY
 	};
@@ -794,11 +805,32 @@ final class ValueComputer extends PrismComponent {
 			lumper = new StrongLumper(pmc);
 		}
 
-		MutablePMC quot = lumper.getQuotient();
+		MutablePMC originQuot = lumper.getQuotient();
+		MutablePMC quot = originQuot;
 		quot.setInitState(initState, true);
-		StateEliminator eliminator = new StateEliminator(quot, getEliminationOrderIterator(eliminationOrder, quot, initState));
-		Timer.time(() -> eliminator.eliminate(), "eliminate()");
-		System.out.println("Elimination caluclations: " + eliminator.getCalculations());
+		StateEliminator eliminator = null;
+		if (eliminationOrder.equals(EliminationOrder.BENCHMARK)) {
+			for (EliminationOrder order : EliminationOrder.values()) {
+				if (order.equals(EliminationOrder.BENCHMARK) || order.equals(EliminationOrder.RANDOM) || order.equals(EliminationOrder.ARBITRARY)) {
+					continue;
+				}
+				quot = originQuot.clone();
+				eliminator = new StateEliminator(quot.clone(), 
+						getEliminationOrderIterator(order, quot, initState));
+				EliminationRun run = EliminationRunGroup.getInstance().newRunWithDifferentOrder(order);
+				run.setStart(Instant.now());
+				eliminator.eliminate();
+				try {
+					EliminationRunGroup.getInstance().concludeCurrentRun();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		} else {
+			eliminator = new StateEliminator(quot, getEliminationOrderIterator(eliminationOrder, quot, initState));
+			eliminator.eliminate();
+		}
+
 		int[] origToCopy = lumper.getOriginalToOptimised();
 		StateValues result = new StateValues(pmc.getNumStates(), initState);
 		for (int state = 0; state < origToCopy.length; state++) {

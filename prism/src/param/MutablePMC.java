@@ -30,9 +30,11 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -43,7 +45,7 @@ import java.util.stream.IntStream;
  * @author Ernst Moritz Hahn <emhahn@cs.ox.ac.uk> (University of Oxford)
  * @see StateEliminator
  */
-public final class MutablePMC {
+public final class MutablePMC implements Cloneable {
 	/** function factory to which functions in this object belong */
 	private FunctionFactory functionFactory;
 	/** assignment of rewards to each state */
@@ -51,13 +53,13 @@ public final class MutablePMC {
 	/** assignment of time to each state */
 	private Function[] times;
 	/** for each state, provides list of leaving transition probabilities */
-	private ArrayList<LinkedList<Function>> transitionProbs;
+	private List<LinkedList<Function>> transitionProbs;
 	/** for each state, provides list of leaving transition targets */
-	ArrayList<LinkedList<Integer>> transitionTargets;
+	List<LinkedList<Integer>> transitionTargets;
 	/**
 	 * for each state, provides list of states which have transitions to this state
 	 */
-	ArrayList<LinkedList<Integer>> incoming;
+	List<LinkedList<Integer>> incoming;
 	/** true iff uses a reward structure */
 	private boolean useRewards;
 	/** true iff uses time reward structure */
@@ -107,6 +109,41 @@ public final class MutablePMC {
 				times[i] = functionFactory.getOne();
 			}
 		}
+	}
+
+	private MutablePMC() {
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public MutablePMC clone() {
+		Function[] newRewards = null;
+		Function[] newTimes = null;
+		if (useRewards) {
+			newRewards = new Function[rewards.length];
+			System.arraycopy(rewards, 0, newRewards, 0, numStates);
+		}
+		if (useTime) {
+			newTimes = new Function[times.length];
+			System.arraycopy(times, 0, newTimes, 0, numStates);
+		}
+
+		MutablePMC cloned = new MutablePMC();
+		cloned.functionFactory = functionFactory;
+		cloned.rewards = newRewards;
+		cloned.times = newTimes;
+		cloned.transitionProbs = transitionProbs.stream().map(a -> (LinkedList<Function>) a.clone())
+				.collect(Collectors.toCollection(() -> new ArrayList<>(transitionProbs.size())));
+		cloned.transitionTargets = transitionTargets.stream().map(a -> (LinkedList<Integer>) a.clone())
+				.collect(Collectors.toCollection(() -> new ArrayList<>(transitionProbs.size())));
+		cloned.incoming = incoming.stream().map(a -> (LinkedList<Integer>) a.clone())
+				.collect(Collectors.toCollection(() -> new ArrayList<>(transitionProbs.size())));
+		cloned.useRewards = useRewards;
+		cloned.useTime = useTime;
+		cloned.targetStates = (BitSet) targetStates.clone();
+		cloned.initStates = (BitSet) initStates.clone();
+		cloned.numStates = numStates;
+		return cloned;
 	}
 
 	public BitSet getTargetStates() {
@@ -363,15 +400,15 @@ public final class MutablePMC {
 		return useTime;
 	}
 
-	public ArrayList<LinkedList<Function>> getTransitionProbs() {
+	public List<LinkedList<Function>> getTransitionProbs() {
 		return transitionProbs;
 	}
 
-	public ArrayList<LinkedList<Integer>> getTransitionTargets() {
+	public List<LinkedList<Integer>> getTransitionTargets() {
 		return transitionTargets;
 	}
 
-	public ArrayList<LinkedList<Integer>> getIncoming() {
+	public List<LinkedList<Integer>> getIncoming() {
 		return incoming;
 	}
 
