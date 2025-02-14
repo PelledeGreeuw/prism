@@ -4,12 +4,13 @@ import java.util.BitSet;
 import java.util.HashSet;
 
 import param.MutablePMC;
+import prism.PrismComponent;
 
 public class BackwardOrder extends OrderWithShadowIterator {
 	private boolean onlyStatesReachingTarget;
 
-	public BackwardOrder(MutablePMC pmc, int initialState, boolean onlyStatesReachingTarget) {
-		super(pmc, initialState);
+	public BackwardOrder(MutablePMC pmc, int initialState, PrismComponent parent, boolean onlyStatesReachingTarget) {
+		super(pmc, initialState, parent);
 		this.onlyStatesReachingTarget = onlyStatesReachingTarget;
 	}
 

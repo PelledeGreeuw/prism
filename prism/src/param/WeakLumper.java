@@ -232,6 +232,11 @@ final class WeakLumper extends Lumper {
 			} else {
 				optPmc.setTargetState(newState, origPmc.isTargetState(oldState));
 			}
+			for (int loopState : fromBlock) {
+				if (origPmc.isInitState(loopState)) {
+					optPmc.setInitState(newState, true);
+				}
+			}
 		}
 	}
 	

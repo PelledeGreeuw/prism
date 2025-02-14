@@ -17,7 +17,3 @@ module die
 	[] s=7 -> (s'=7);
 	
 endmodule
-
-rewards "coin_flips"
-	[] s<7 : 1;
-endrewards

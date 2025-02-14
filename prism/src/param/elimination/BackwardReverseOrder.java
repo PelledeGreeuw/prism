@@ -1,10 +1,11 @@
 package param.elimination;
 
 import param.MutablePMC;
+import prism.PrismComponent;
 
 public class BackwardReverseOrder extends BackwardOrder {
-	public BackwardReverseOrder(MutablePMC pmc, int initialState, boolean onlyStatesReachingTarget) {
-		super(pmc, initialState, onlyStatesReachingTarget);
+	public BackwardReverseOrder(MutablePMC pmc, int initialState, PrismComponent parent, boolean onlyStatesReachingTarget) {
+		super(pmc, initialState, parent, onlyStatesReachingTarget);
 	}
 	
 	@Override

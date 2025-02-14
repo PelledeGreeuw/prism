@@ -12,6 +12,10 @@ public enum EliminationOrder {
 	BACKWARD,
 	/** states close to target states last */
 	BACKWARD_REVERSED,
+	TRANSITION_SUM,
+	TRANSITION_MULT,
+	SIMPLE_CYCLE_COUNT,
+	FIXED_CYCLE_3,
 	/** random */
 	RANDOM;
 }

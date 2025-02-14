@@ -17,3 +17,4 @@ R=? [ F "stable" {"k_tokens"}{min} ]
 // Minimum probability reached a stable configuration within K steps (for all configurations)
 P=? [ F<=K "stable" {"init"}{min} ]
 
+R=? [ F "stable" ]

@@ -1,11 +1,12 @@
 package param.elimination;
 
 import param.MutablePMC;
+import prism.PrismComponent;
 
 public class ForwardReverseOrder extends ForwardOrder {
 
-	public ForwardReverseOrder(MutablePMC pmc, int initialState) {
-		super(pmc, initialState);
+	public ForwardReverseOrder(MutablePMC pmc, int initialState, PrismComponent parent) {
+		super(pmc, initialState, parent);
 	}
 
 	@Override

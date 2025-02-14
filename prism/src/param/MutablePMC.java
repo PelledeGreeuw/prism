@@ -31,11 +31,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import javax.naming.InitialContext;
 
 /**
  * Representation of mutable parametric Markov chain. This class is intended to
@@ -249,6 +253,16 @@ public final class MutablePMC implements Cloneable {
 		}
 		return IntStream.range(0, numStates).filter(a -> initStates.get(a) || !incoming.get(a).isEmpty())
 				.map(a -> transitionProbs.get(a).size()).sum();
+	}
+	
+	public Set<Integer> getInitialStates(){
+		Set<Integer> result = new HashSet<>();
+		for (int i = 0; i < numStates; i++) {
+			if (initStates.get(i)) {
+				result.add(i);
+			}
+		}
+		return result;
 	}
 
 	public void printInitialStates() {

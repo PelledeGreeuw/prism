@@ -3220,6 +3220,9 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 			} else if (getCurrentEngine() == PrismEngine.EXACT) {
 				ParamModelChecker mc = new ParamModelChecker(this, ParamMode.EXACT);
 				mc.setModelCheckingInfo(getPRISMModel(), propertiesFile, getRewardGenerator());
+				if (EliminationRunGroup.getInstance().isRecordData()) {
+					EliminationRunGroup.getInstance().newRun(new EliminationRun(prop.toString(), propertiesFile.getProperties().indexOf(prop)));
+				}
 				res = mc.check(getBuiltModelExplicit(), prop.getExpression());
 			}
 			

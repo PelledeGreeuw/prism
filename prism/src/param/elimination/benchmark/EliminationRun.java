@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -31,6 +32,8 @@ public class EliminationRun {
 	@JsonIgnore
 	private List<EliminationStep> steps = new ArrayList<>();
 	private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().findAndAddModules().build();
+	@JsonIgnore
+	private int index;
 
 	public EliminationRun(String property, int propertyIndex) {
 		this.property = property;
@@ -43,10 +46,14 @@ public class EliminationRun {
 
 	public void conclude() throws IOException {
 		end = Instant.now();
-		createStepsFile();
+		setStepsFile(new File(MessageFormat.format("steps-{0}.json", UUID.randomUUID())));
 		calculations = steps.stream().map(EliminationStep::getCalculations).reduce(0, Integer::sum);
 		writeStepsToFile(steps);
 		steps = null;
+	}
+	
+	public void setIndex(int index) {
+		this.index = index;
 	}
 
 	public void createStepsFile() {
@@ -60,6 +67,7 @@ public class EliminationRun {
 
 	public void setStepsFile(File stepsFile) {
 		this.stepsFile = stepsFile;
+		this.stepsFilename = stepsFile.getName();
 	}
 
 	public EliminationOrder getOrder() {
@@ -71,6 +79,9 @@ public class EliminationRun {
 	}
 
 	public long getCalculations() {
+		if (calculations == 0) {
+			return steps.stream().map(EliminationStep::getCalculations).reduce(0, Integer::sum);
+		}
 		return calculations;
 	}
 

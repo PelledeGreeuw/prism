@@ -3,14 +3,17 @@ package param.elimination;
 import java.util.Iterator;
 
 import param.MutablePMC;
+import prism.PrismComponent;
 
 public abstract class EliminationOrderIterator implements Iterator<Integer> {
 	protected MutablePMC pmc;
 	private int initialState;
+	protected final PrismComponent parent;
 	
-	public EliminationOrderIterator(MutablePMC pmc, int initialState) {
+	public EliminationOrderIterator(MutablePMC pmc, int initialState, PrismComponent parent) {
 		this.pmc = pmc;
 		this.initialState = initialState;
+		this.parent = parent;
 	}
 
 	public int getInitialState() {

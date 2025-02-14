@@ -40,7 +40,7 @@
     <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="prism.PrismCL"/>
     <listAttribute key="org.eclipse.jdt.launching.MODULEPATH"/>
     <stringAttribute key="org.eclipse.jdt.launching.MODULE_NAME" value="dev_prism"/>
-    <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="prism-examples/simple/dice/dice.pm&#10;prism-examples/simple/dice/dice.pctl&#10;-paramelimorder BENCHMARK&#10;-prop 2&#10;-const x=2&#10;-param err"/>
+    <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="prism-examples/dtmcs/brp/brp.pm&#10;prism-examples/dtmcs/brp/brp.pctl&#10;-paramelimorder BENCHMARK&#10;-prop 3&#10;-const N=16&#10;-const MAX=2&#10;-exact"/>
     <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="dev_prism"/>
     <stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-Djava.awt.headless=true &#10;-Djava.library.path=/home/pelle/dev/prism/prism/lib"/>
 </launchConfiguration>

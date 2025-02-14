@@ -40,12 +40,19 @@ import explicit.rewards.MCRewardsFromMDPRewards;
 import explicit.rewards.MDPRewards;
 import explicit.rewards.MDPRewardsSimple;
 import explicit.rewards.Rewards;
+import param.Lumper.BisimType;
 import param.elimination.BackwardOrder;
 import param.elimination.BackwardReverseOrder;
+import param.elimination.BruteForceHelperIterator;
+import param.elimination.CycleCountOrder;
 import param.elimination.EliminationOrder;
 import param.elimination.EliminationOrderIterator;
+import param.elimination.FixedSizeCycleCountOrder;
 import param.elimination.ForwardOrder;
 import param.elimination.ForwardReverseOrder;
+import param.elimination.InOutMultiplicatedOrder;
+import param.elimination.TransitionSizeOrder;
+import param.elimination.benchmark.DOTExport;
 import param.elimination.benchmark.EliminationRun;
 import param.elimination.benchmark.EliminationRunGroup;
 import prism.ModelType;
@@ -60,19 +67,23 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+
+import javax.naming.LimitExceededException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import cern.colt.map.Benchmark;
 
-
 /**
  * Computes values for properties of a parametric Markov model.
  */
 final class ValueComputer extends PrismComponent {
 	private static final Logger logger = LogManager.getLogger(ValueComputer.class);
+
 	private enum PropType {
 		REACH, STEADY
 	};
@@ -783,6 +794,7 @@ final class ValueComputer extends PrismComponent {
 	}
 
 	private StateValues computeValues(MutablePMC pmc, int initState) {
+		DOTExport.exportModel(pmc, "before.dot");
 		Lumper lumper;
 		switch (bisimType) {
 		case NULL:
@@ -804,20 +816,28 @@ final class ValueComputer extends PrismComponent {
 		if (lumper instanceof WeakLumper && pmc.isUseTime()) {
 			lumper = new StrongLumper(pmc);
 		}
-
+		this.getLog().println("Original model");
+		this.getLog().println("States:      " + pmc.getNumStates());
+		this.getLog().println("Transitions: " + pmc.getNumTransitions());
 		MutablePMC originQuot = lumper.getQuotient();
+		this.getLog().println("Lumped model");
+		this.getLog().println("States:      " + originQuot.getNumStates());
+		this.getLog().println("Transitions: " + originQuot.getNumTransitions());
+
+		DOTExport.exportModel(originQuot, "after.dot");
+//		originQuot = pmc;
 		MutablePMC quot = originQuot;
-		quot.setInitState(initState, true);
 		StateEliminator eliminator = null;
 		if (eliminationOrder.equals(EliminationOrder.BENCHMARK)) {
 			for (EliminationOrder order : EliminationOrder.values()) {
-				if (order.equals(EliminationOrder.BENCHMARK) || order.equals(EliminationOrder.RANDOM) || order.equals(EliminationOrder.ARBITRARY)) {
+				if (order.equals(EliminationOrder.BENCHMARK) || order.equals(EliminationOrder.RANDOM)
+						|| order.equals(EliminationOrder.ARBITRARY)) {
 					continue;
 				}
 				quot = originQuot.clone();
-				eliminator = new StateEliminator(quot.clone(), 
-						getEliminationOrderIterator(order, quot, initState));
+				eliminator = new StateEliminator(quot.clone(), getEliminationOrderIterator(order, quot, initState));
 				EliminationRun run = EliminationRunGroup.getInstance().newRunWithDifferentOrder(order);
+				logger.info("Eliminating with order {}", order.name());
 				run.setStart(Instant.now());
 				eliminator.eliminate();
 				try {
@@ -827,8 +847,15 @@ final class ValueComputer extends PrismComponent {
 				}
 			}
 		} else {
+			EliminationRunGroup.getInstance().getCurrentRun().setStart(Instant.now());
+			EliminationRunGroup.getInstance().getCurrentRun().setOrder(eliminationOrder);
 			eliminator = new StateEliminator(quot, getEliminationOrderIterator(eliminationOrder, quot, initState));
 			eliminator.eliminate();
+			try {
+				EliminationRunGroup.getInstance().concludeCurrentRun();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 
 		int[] origToCopy = lumper.getOriginalToOptimised();
@@ -843,13 +870,21 @@ final class ValueComputer extends PrismComponent {
 			int initialState) {
 		switch (order) {
 		case FORWARD:
-			return new ForwardOrder(pmc, initialState);
+			return new ForwardOrder(pmc, initialState, this);
 		case FORWARD_REVERSED:
-			return new ForwardReverseOrder(pmc, initialState);
+			return new ForwardReverseOrder(pmc, initialState, this);
 		case BACKWARD:
-			return new BackwardOrder(pmc, initialState, true);
+			return new BackwardOrder(pmc, initialState, this, true);
 		case BACKWARD_REVERSED:
-			return new BackwardReverseOrder(pmc, initialState, true);
+			return new BackwardReverseOrder(pmc, initialState, this, true);
+		case TRANSITION_SUM:
+			return new TransitionSizeOrder(pmc, initialState, this);
+		case TRANSITION_MULT:
+			return new InOutMultiplicatedOrder(pmc, initialState, this);
+		case SIMPLE_CYCLE_COUNT:
+			return new CycleCountOrder(pmc, initialState, this);
+		case FIXED_CYCLE_3:
+			return new FixedSizeCycleCountOrder(pmc, initialState, this, 3);
 		default:
 			throw new RuntimeException("Elimination order not implemented: " + order.name());
 		}

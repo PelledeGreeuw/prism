@@ -33,9 +33,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import param.elimination.EliminationOrderIterator;
 import param.elimination.benchmark.EliminationRunGroup;
 import param.elimination.benchmark.EliminationStep;
+import prism.PrismComponent;
 
 /**
  * Performs computation of reachability probabilities and rewards. This class
@@ -51,6 +55,7 @@ import param.elimination.benchmark.EliminationStep;
  * @author Ernst Moritz Hahn <emhahn@cs.ox.ac.uk> (University of Oxford)
  */
 final class StateEliminator {
+	private static final Logger logger = LogManager.getLogger(StateEliminator.class);
 
 	/**
 	 * The order in which states shall be eliminated.
@@ -144,6 +149,19 @@ final class StateEliminator {
 			eliminate(eliminationOrder.next());
 		}
 	}
+	
+	int tryEliminate(long maxCalculations) {
+		if (!precompute()) {
+			return -1;
+		}
+		while (eliminationOrder.hasNext() && EliminationRunGroup.getInstance().getCurrentRun().getCalculations() < maxCalculations) {
+			eliminate(eliminationOrder.next());
+		}
+		if (eliminationOrder.hasNext()) {
+			return eliminationOrder.next();
+		}
+		return -1;
+	}
 
 	/**
 	 * Stores a transition which shall be added to the model later.
@@ -177,9 +195,15 @@ final class StateEliminator {
 	 * @param midState state to eliminate
 	 */
 	private void eliminate(int midState) {
+		logger.trace("Eliminating state {}", midState);
 		Function loopProb = pmc.getSelfLoopProb(midState);
 		/* states with only a self-loop require no further treatment */
 		if (loopProb.equals(pmc.getFunctionFactory().getOne())) {
+			if (EliminationRunGroup.getInstance().isRecordData()) {
+				EliminationRunGroup.getInstance().getCurrentRun().addStep(
+						new EliminationStep(EliminationRunGroup.getInstance().getCurrentRun().getSteps().size(), 
+								midState, 0, pmc.getNumTransitions()));
+			}
 			return;
 		}
 		/* slStar = 1/(1-x), where x is the self-loop probability */
