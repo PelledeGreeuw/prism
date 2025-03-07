@@ -28,8 +28,10 @@ package param;
 
 import static param.elimination.BackwardOrder.collectStatesBackward;
 
+import java.net.Authenticator.RequestorType;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 
@@ -146,15 +148,22 @@ final class StateEliminator {
 			return;
 		}
 		while (eliminationOrder.hasNext()) {
-			eliminate(eliminationOrder.next());
+			int next = eliminationOrder.next();
+			long start = System.currentTimeMillis();
+			eliminate(next);
+			long end = System.currentTimeMillis();
+			List<EliminationStep> steps = EliminationRunGroup.getInstance().getCurrentRun().getSteps();
+			EliminationStep last = steps.get(steps.size() - 1);
+			logger.info("{} - {} - {},{}", next, (end - start) / 1000, last.getCalculations(), last.getTransitions());
 		}
 	}
-	
+
 	int tryEliminate(long maxCalculations) {
 		if (!precompute()) {
 			return -1;
 		}
-		while (eliminationOrder.hasNext() && EliminationRunGroup.getInstance().getCurrentRun().getCalculations() < maxCalculations) {
+		while (eliminationOrder.hasNext()
+				&& EliminationRunGroup.getInstance().getCurrentRun().getCalculations() < maxCalculations) {
 			eliminate(eliminationOrder.next());
 		}
 		if (eliminationOrder.hasNext()) {
@@ -201,7 +210,7 @@ final class StateEliminator {
 		if (loopProb.equals(pmc.getFunctionFactory().getOne())) {
 			if (EliminationRunGroup.getInstance().isRecordData()) {
 				EliminationRunGroup.getInstance().getCurrentRun().addStep(
-						new EliminationStep(EliminationRunGroup.getInstance().getCurrentRun().getSteps().size(), 
+						new EliminationStep(EliminationRunGroup.getInstance().getCurrentRun().getSteps().size(),
 								midState, 0, pmc.getNumTransitions()));
 			}
 			return;
@@ -302,8 +311,135 @@ final class StateEliminator {
 		}
 		pmc.getIncoming().get(midState).clear();
 		if (EliminationRunGroup.getInstance().isRecordData()) {
-			EliminationRunGroup.getInstance().getCurrentRun().addStep(
-					new EliminationStep(EliminationRunGroup.getInstance().getCurrentRun().getSteps().size(), 
+			EliminationRunGroup.getInstance().getCurrentRun()
+					.addStep(new EliminationStep(EliminationRunGroup.getInstance().getCurrentRun().getSteps().size(),
+							midState, newTransitions.size(), pmc.getNumTransitions()));
+		}
+	}
+
+	/**
+	 * Eliminates a given state
+	 * 
+	 * @param midState state to eliminate
+	 */
+	private void eliminateIncomingAndOutgoing(int midState) {
+		logger.trace("Eliminating state {}", midState);
+		Function loopProb = pmc.getSelfLoopProb(midState);
+		/* states with only a self-loop require no further treatment */
+		if (loopProb.equals(pmc.getFunctionFactory().getOne())) {
+			if (EliminationRunGroup.getInstance().isRecordData()) {
+				EliminationRunGroup.getInstance().getCurrentRun().addStep(
+						new EliminationStep(EliminationRunGroup.getInstance().getCurrentRun().getSteps().size(),
+								midState, 0, pmc.getNumTransitions()));
+			}
+			return;
+		}
+		/* slStar = 1/(1-x), where x is the self-loop probability */
+		Function slStar = loopProb.star();
+		
+		List<Integer> incoming = pmc.getIncoming().get(midState);
+		List<Integer> targets = pmc.getTransitionTargets().get(midState);
+		List<Function> probabilities = pmc.getTransitionProbs().get(midState);
+		
+		/*
+		 * remove self loop from state and set outgoing probabilities to <out-prob> /
+		 * (1-<self-loop-prob>). This corresponds to the probability to eventually
+		 * leaving midState to a specific successor state, after executing any number of
+		 * self loops.
+		 */
+		ListIterator<Integer> toStateIter = targets.listIterator();
+		ListIterator<Function> toProbIter = probabilities.listIterator();
+		while (toStateIter.hasNext()) {
+			int toState = toStateIter.next();
+			Function toProb = toProbIter.next();
+			if (midState != toState) {
+				toProbIter.set(slStar.multiply(toProb));
+			}
+		}
+		toStateIter = targets.listIterator();
+		toProbIter = probabilities.listIterator();
+		while (toStateIter.hasNext()) {
+			int toState = toStateIter.next();
+			toProbIter.next();
+			if (midState == toState) {
+				toStateIter.remove();
+				toProbIter.remove();
+				break;
+			}
+		}
+		incoming.remove((Integer) midState);
+
+		/*
+		 * adapt rewards and time spent in state accordingly. The new values correspond
+		 * to adding the expected reward/time obtained from moving to the midState from
+		 * one of its predecessors, times the probability of moving.
+		 */
+		Function reward = null;
+		Function time = null;
+		if (pmc.isUseRewards()) {
+			reward = pmc.getReward(midState).multiply(slStar);
+			pmc.setReward(midState, reward);
+			for (int from : pmc.getIncoming().get(midState)) {
+				pmc.setReward(from, pmc.getReward(from)
+						.add(pmc.getTransProb(from, midState).multiply(pmc.getReward(midState))));
+			}
+		}
+		if (pmc.isUseTime()) {
+			time = pmc.getTime(midState).multiply(slStar);
+			pmc.setTime(midState, time);
+		}
+
+		/*
+		 * redirect transitions of predecessors of midState. Redirection is done such
+		 * that some state fromState will have a probability of moving to a successor
+		 * state toState of midState with probability (<fromState-to-midState-prob> *
+		 * <midState-to-toState-prob) / (1-<self-loop-prob>). (If there already was a
+		 * transition from fromState to toState, probabilities will be added up.). All
+		 * transitions to midState will be removed.
+		 */
+		ArrayList<NewTransition> newTransitions = new ArrayList<NewTransition>();
+		for (int fromState : pmc.getIncoming().get(midState)) {
+			if (fromState != midState) {
+				Function fromToMid = pmc.getTransProb(fromState, midState);
+				ListIterator<Integer> toStateIter = targets.listIterator();
+				ListIterator<Function> toProbIter = probabilities.listIterator();
+				while (toStateIter.hasNext()) {
+					int toState = toStateIter.next();
+					Function midToTo = toProbIter.next();
+					if (toState != midState) {
+						Function fromToToAdd = fromToMid.multiply(slStar.multiply(midToTo));
+						newTransitions.add(new NewTransition(fromState, toState, fromToToAdd));
+						if (pmc.isUseRewards()) {
+							pmc.setReward(toState, pmc.getReward(toState).add(midToTo.multiply(reward)));
+						}
+						if (pmc.isUseTime()) {
+							pmc.setTime(toState, pmc.getTime(toState).add(midToTo.multiply(time)));
+						}
+					}
+				}
+			}
+		}
+		for (int fromState : pmc.getIncoming().get(midState)) {
+			ListIterator<Integer> toStateIter = pmc.getTransitionTargets().get(fromState).listIterator();
+			ListIterator<Function> toProbIter = pmc.getTransitionProbs().get(fromState).listIterator();
+			while (toStateIter.hasNext()) {
+				int state = toStateIter.next();
+				toProbIter.next();
+				if (state == midState) {
+					toStateIter.remove();
+					toProbIter.remove();
+					break;
+				}
+			}
+		}
+		for (NewTransition newTransition : newTransitions) {
+			pmc.addTransition(newTransition.fromState, newTransition.toState, newTransition.prob);
+		}
+
+		pmc.getIncoming().get(midState).clear();
+		if (EliminationRunGroup.getInstance().isRecordData()) {
+			EliminationRunGroup.getInstance().getCurrentRun()
+					.addStep(new EliminationStep(EliminationRunGroup.getInstance().getCurrentRun().getSteps().size(),
 							midState, newTransitions.size(), pmc.getNumTransitions()));
 		}
 	}

@@ -794,7 +794,6 @@ final class ValueComputer extends PrismComponent {
 	}
 
 	private StateValues computeValues(MutablePMC pmc, int initState) {
-		DOTExport.exportModel(pmc, "before.dot");
 		Lumper lumper;
 		switch (bisimType) {
 		case NULL:
@@ -820,12 +819,11 @@ final class ValueComputer extends PrismComponent {
 		this.getLog().println("States:      " + pmc.getNumStates());
 		this.getLog().println("Transitions: " + pmc.getNumTransitions());
 		MutablePMC originQuot = lumper.getQuotient();
+		this.getLog().println();
 		this.getLog().println("Lumped model");
 		this.getLog().println("States:      " + originQuot.getNumStates());
 		this.getLog().println("Transitions: " + originQuot.getNumTransitions());
-
-		DOTExport.exportModel(originQuot, "after.dot");
-//		originQuot = pmc;
+		this.getLog().println();
 		MutablePMC quot = originQuot;
 		StateEliminator eliminator = null;
 		if (eliminationOrder.equals(EliminationOrder.BENCHMARK)) {
@@ -835,9 +833,9 @@ final class ValueComputer extends PrismComponent {
 					continue;
 				}
 				quot = originQuot.clone();
-				eliminator = new StateEliminator(quot.clone(), getEliminationOrderIterator(order, quot, initState));
+				eliminator = new StateEliminator(quot, getEliminationOrderIterator(order, quot, initState));
 				EliminationRun run = EliminationRunGroup.getInstance().newRunWithDifferentOrder(order);
-				logger.info("Eliminating with order {}", order.name());
+				this.getLog().println("Eliminating with order " + order.name());
 				run.setStart(Instant.now());
 				eliminator.eliminate();
 				try {
