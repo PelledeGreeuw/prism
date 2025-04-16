@@ -25,16 +25,49 @@ public class BackwardOrder extends OrderWithShadowIterator {
 	 */
 	@Override
 	public int[] getOrder() {
-		return removeTargetStates(collectStatesBackward(pmc, onlyStatesReachingTarget));
+		return collectStatesBackward(pmc, onlyStatesReachingTarget, false);
 	}
 
-	public static int[] collectStatesBackward(MutablePMC pmc, boolean onlyStatesReachingTarget) {
-		int[] states = new int[pmc.getNumStates()];
+	public static int[] collectStatesBackward(MutablePMC pmc, boolean onlyStatesReachingTarget, boolean includeInitialStates) {
+		int[] states = new int[pmc.getNumStates() - pmc.getTargetStates().cardinality() - (includeInitialStates ? 0 : pmc.getInitialStateNumbers().size())];
 		BitSet seen = new BitSet(pmc.getNumStates());
 		HashSet<Integer> current = new HashSet<Integer>();
 		int nextStateNr = 0;
 		for (int state = 0; state < pmc.getNumStates(); state++) {
 			if (pmc.isTargetState(state)) {
+				current.add(state);
+				seen.set(state);
+			}
+			if (!includeInitialStates && pmc.isInitState(state)) {
+				seen.set(state);
+			}
+		}
+		while (!current.isEmpty()) {
+			HashSet<Integer> next = new HashSet<Integer>();
+			for (int state : current) {
+				for (int succState : pmc.getIncoming().get(state)) {
+					if (!seen.get(succState)) {
+						seen.set(succState, true);
+						next.add(succState);
+						states[nextStateNr] = succState;
+						nextStateNr++;
+					}
+				}
+			}
+			current = next;
+		}
+
+		if (onlyStatesReachingTarget) {
+			int[] reachingTarget = new int[nextStateNr];
+			System.arraycopy(states, 0, reachingTarget, 0, nextStateNr);
+			return reachingTarget;
+		}
+
+		/*
+		 * might not find all states when doing as above, so add missing ones
+		 */
+		for (int state = 0; state < pmc.getNumStates(); state++) {
+			if (!seen.get(state) && pmc.getTransitionProbs().get(state).size() == 1) {
 				current.add(state);
 				states[nextStateNr] = state;
 				seen.set(state, true);
@@ -54,25 +87,6 @@ public class BackwardOrder extends OrderWithShadowIterator {
 				}
 			}
 			current = next;
-		}
-
-		if (onlyStatesReachingTarget) {
-			return states;
-		}
-
-		/*
-		 * might not find all states when doing as above, so add missing ones
-		 */
-		HashSet<Integer> allStates = new HashSet<Integer>();
-		for (int stateNr = 0; stateNr < states.length; stateNr++) {
-			int state = states[stateNr];
-			allStates.add(state);
-		}
-		for (int state = 0; state < pmc.getNumStates(); state++) {
-			if (!allStates.contains(state)) {
-				states[nextStateNr] = state;
-				nextStateNr++;
-			}
 		}
 
 		return states;

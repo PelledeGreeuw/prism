@@ -50,11 +50,17 @@ import param.elimination.EliminationOrderIterator;
 import param.elimination.FixedSizeCycleCountOrder;
 import param.elimination.ForwardOrder;
 import param.elimination.ForwardReverseOrder;
+import param.elimination.HeuristicOrder;
 import param.elimination.InOutMultiplicatedOrder;
+import param.elimination.MinimizeOverallInOutDegree;
 import param.elimination.TransitionSizeOrder;
 import param.elimination.benchmark.DOTExport;
 import param.elimination.benchmark.EliminationRun;
 import param.elimination.benchmark.EliminationRunGroup;
+import param.heuristic.InOutMultHeuristic;
+import param.heuristic.LeastIncomingTransitionsHeuristic;
+import param.heuristic.MinNeighbourInOutChangeHeuristic;
+import param.heuristic.NeighbourInOutChangeHeuristic;
 import prism.ModelType;
 import prism.PrismComponent;
 import prism.PrismException;
@@ -794,6 +800,14 @@ final class ValueComputer extends PrismComponent {
 	}
 
 	private StateValues computeValues(MutablePMC pmc, int initState) {
+//		DOTExport.exportModel(pmc, "before.dot");
+		pmc.printTargetStates();
+		int originalStateLength = pmc.getNumStates();
+		int originalInitState = initState;
+		CutUnreachableStates cutUnreachableStates = new CutUnreachableStates(pmc);
+		pmc = cutUnreachableStates.getReachableStatesPMC();
+		initState = cutUnreachableStates.getNewStateNR(initState);
+//		DOTExport.exportModel(pmc, "reached.dot");
 		Lumper lumper;
 		switch (bisimType) {
 		case NULL:
@@ -824,6 +838,7 @@ final class ValueComputer extends PrismComponent {
 		this.getLog().println("States:      " + originQuot.getNumStates());
 		this.getLog().println("Transitions: " + originQuot.getNumTransitions());
 		this.getLog().println();
+//		DOTExport.exportModel(originQuot, "lumped.dot");
 		MutablePMC quot = originQuot;
 		StateEliminator eliminator = null;
 		if (eliminationOrder.equals(EliminationOrder.BENCHMARK)) {
@@ -857,9 +872,9 @@ final class ValueComputer extends PrismComponent {
 		}
 
 		int[] origToCopy = lumper.getOriginalToOptimised();
-		StateValues result = new StateValues(pmc.getNumStates(), initState);
-		for (int state = 0; state < origToCopy.length; state++) {
-			result.setStateValue(state, eliminator.getResult(origToCopy[state]));
+		StateValues result = new StateValues(originalStateLength, originalInitState);
+		for (int state = 0; state < originalStateLength; state++) {
+			result.setStateValue(state, eliminator.getResult(origToCopy[cutUnreachableStates.getNewStateNR(state)]));
 		}
 		return result;
 	}
@@ -872,9 +887,9 @@ final class ValueComputer extends PrismComponent {
 		case FORWARD_REVERSED:
 			return new ForwardReverseOrder(pmc, initialState, this);
 		case BACKWARD:
-			return new BackwardOrder(pmc, initialState, this, true);
+			return new BackwardOrder(pmc, initialState, this, false);
 		case BACKWARD_REVERSED:
-			return new BackwardReverseOrder(pmc, initialState, this, true);
+			return new BackwardReverseOrder(pmc, initialState, this, false);
 		case TRANSITION_SUM:
 			return new TransitionSizeOrder(pmc, initialState, this);
 		case TRANSITION_MULT:
@@ -883,6 +898,18 @@ final class ValueComputer extends PrismComponent {
 			return new CycleCountOrder(pmc, initialState, this);
 		case FIXED_CYCLE_3:
 			return new FixedSizeCycleCountOrder(pmc, initialState, this, 3);
+		case MIN_IN_OUT_DEGREE:
+			return new MinimizeOverallInOutDegree(pmc, initialState, this);
+		case HEURISTIC_1:
+			return new HeuristicOrder(pmc, initialState, this, new InOutMultHeuristic(), new LeastIncomingTransitionsHeuristic());
+		case HEURISTIC_2:
+			return new HeuristicOrder(pmc, initialState, this, new InOutMultHeuristic(), new NeighbourInOutChangeHeuristic());
+		case HEURISTIC_3:
+			return new HeuristicOrder(pmc, initialState, this, new InOutMultHeuristic(), new NeighbourInOutChangeHeuristic(), 
+					new LeastIncomingTransitionsHeuristic());
+		case HEURISTIC_4:
+			return new HeuristicOrder(pmc, initialState, this, new InOutMultHeuristic(), new MinNeighbourInOutChangeHeuristic(),
+					new NeighbourInOutChangeHeuristic(), new LeastIncomingTransitionsHeuristic());
 		default:
 			throw new RuntimeException("Elimination order not implemented: " + order.name());
 		}

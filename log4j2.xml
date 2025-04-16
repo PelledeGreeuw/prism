@@ -10,7 +10,7 @@
         <Root level="error">
             <AppenderRef ref="console" />
         </Root>
-        <Logger level="debug" name="param"></Logger>
-        <Logger level="debug" name="param.StateElimination"></Logger>
+        <Logger level="info" name="param"></Logger>
+        <Logger level="info" name="param.StateElimination"></Logger>
     </Loggers>
 </Configuration>

@@ -33,19 +33,16 @@ public class ForwardOrder extends OrderWithShadowIterator {
 	 */
 	@Override
 	public int[] getOrder() {
-		int[] states = new int[pmc.getNumStates()];
-		BitSet seen = new BitSet(pmc.getNumStates());
+		int[] states = new int[pmc.getNumStates() - pmc.getTargetStates().cardinality() - pmc.getInitStates().cardinality()];
+		BitSet seen = (BitSet) pmc.getTargetStates().clone();
 		HashSet<Integer> current = new HashSet<Integer>();
 		int nextStateNr = 0;
 		/* put initial states in queue */
-		for (int state = 0; state < pmc.getNumStates(); state++) {
-			if (pmc.isInitState(state)) {
-				states[nextStateNr] = state;
-				seen.set(state, true);
-				current.add(state);
-				nextStateNr++;
-			}
+		for (int state : pmc.getInitialStateNumbers()) {
+			seen.set(state, true);
+			current.add(state);
 		}
+		
 		/* perform breadth-first search */
 		while (!current.isEmpty()) {
 			HashSet<Integer> next = new HashSet<Integer>();
@@ -66,6 +63,6 @@ public class ForwardOrder extends OrderWithShadowIterator {
 			System.arraycopy(states, 0, newStates, 0, nextStateNr);
 			states = newStates;
 		}
-		return removeTargetStates(states);
+		return states;
 	}
 }

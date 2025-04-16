@@ -159,7 +159,7 @@ public final class MutablePMC implements Cloneable {
 	 * 
 	 * @return function factory maintaining functions
 	 */
-	FunctionFactory getFunctionFactory() {
+	public FunctionFactory getFunctionFactory() {
 		return functionFactory;
 	}
 
@@ -222,7 +222,7 @@ public final class MutablePMC implements Cloneable {
 	 * @param state state to return self-loop probability of
 	 * @return self-loop probability of given state
 	 */
-	Function getSelfLoopProb(int state) {
+	public Function getSelfLoopProb(int state) {
 		Function loopProb = null;
 
 		ListIterator<Integer> toIter = getTransitionTargets().get(state).listIterator();
@@ -254,11 +254,25 @@ public final class MutablePMC implements Cloneable {
 		return IntStream.range(0, numStates).filter(a -> initStates.get(a) || !incoming.get(a).isEmpty())
 				.map(a -> transitionProbs.get(a).size()).sum();
 	}
-	
-	public Set<Integer> getInitialStates(){
+
+	public BitSet getInitStates() {
+		return initStates;
+	}
+
+	public Set<Integer> getInitialStateNumbers() {
 		Set<Integer> result = new HashSet<>();
 		for (int i = 0; i < numStates; i++) {
 			if (initStates.get(i)) {
+				result.add(i);
+			}
+		}
+		return result;
+	}
+
+	public Set<Integer> getTargetStateNumbers() {
+		Set<Integer> result = new HashSet<>();
+		for (int i = 0; i < numStates; i++) {
+			if (targetStates.get(i)) {
 				result.add(i);
 			}
 		}
