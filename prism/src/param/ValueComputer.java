@@ -890,26 +890,25 @@ final class ValueComputer extends PrismComponent {
 			return new BackwardOrder(pmc, initialState, this, false);
 		case BACKWARD_REVERSED:
 			return new BackwardReverseOrder(pmc, initialState, this, false);
-		case TRANSITION_SUM:
+		case DEGREE:
 			return new TransitionSizeOrder(pmc, initialState, this);
-		case TRANSITION_MULT:
+		case DEGREE_MULT:
 			return new InOutMultiplicatedOrder(pmc, initialState, this);
 		case SIMPLE_CYCLE_COUNT:
 			return new CycleCountOrder(pmc, initialState, this);
 		case FIXED_CYCLE_3:
 			return new FixedSizeCycleCountOrder(pmc, initialState, this, 3);
-		case MIN_IN_OUT_DEGREE:
-			return new MinimizeOverallInOutDegree(pmc, initialState, this);
 		case HEURISTIC_1:
-			return new HeuristicOrder(pmc, initialState, this, new InOutMultHeuristic(), new LeastIncomingTransitionsHeuristic());
-		case HEURISTIC_2:
 			return new HeuristicOrder(pmc, initialState, this, new InOutMultHeuristic(), new NeighbourInOutChangeHeuristic());
-		case HEURISTIC_3:
+		case HEURISTIC_2:
 			return new HeuristicOrder(pmc, initialState, this, new InOutMultHeuristic(), new NeighbourInOutChangeHeuristic(), 
 					new LeastIncomingTransitionsHeuristic());
+		case HEURISTIC_3:
+			return new HeuristicOrder(pmc, initialState, this, new InOutMultHeuristic(), new NeighbourInOutChangeHeuristic(), 
+					new MinNeighbourInOutChangeHeuristic());
 		case HEURISTIC_4:
-			return new HeuristicOrder(pmc, initialState, this, new InOutMultHeuristic(), new MinNeighbourInOutChangeHeuristic(),
-					new NeighbourInOutChangeHeuristic(), new LeastIncomingTransitionsHeuristic());
+			return new HeuristicOrder(pmc, initialState, this, new InOutMultHeuristic(), new MinNeighbourInOutChangeHeuristic(), 
+					new NeighbourInOutChangeHeuristic());
 		default:
 			throw new RuntimeException("Elimination order not implemented: " + order.name());
 		}
